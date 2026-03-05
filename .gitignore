@@ -1,0 +1,25 @@
+# Environment Variables (DO NOT COMMIT)
+.env
+*.env
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+
+# API Keys
+**/api_keys.dart
+
+# Build outputs
+build/
+.dart_tool/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
