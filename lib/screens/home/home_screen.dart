@@ -5,6 +5,7 @@ import '../../data/local/database_helper.dart';
 import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/gamification_service.dart';
+import '../../core/theme/app_theme.dart';
 import '../../widgets/common/glass_card.dart';
 import '../history/history_screen.dart';
 import '../lessons/lessons_screen.dart';
@@ -96,16 +97,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // Animated Liquid Glass Background
-          LiquidGlassContainer(
-            height: MediaQuery.of(context).size.height,
-            colors: const [
-              Color(0xFF1a1a2e),
-              Color(0xFF16213e),
-              Color(0xFF0f3460),
-              Color(0xFF533483),
-            ],
-            child: const SizedBox.expand(),
+          // Solid Gamified Background (Handled by Scaffold, but we can add a simple header background)
+          Container(
+            height: 220,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(32),
+                bottomRight: Radius.circular(32),
+              ),
+            ),
           ),
 
           // Content
@@ -115,55 +116,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               slivers: [
                 // Glass App Bar
                 SliverAppBar(
-                  expandedHeight: 130,
+                  expandedHeight: 100,
                   floating: false,
                   pinned: true,
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  flexibleSpace: ClipRRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Colors.white.withValues(alpha: 0.18),
-                              Colors.white.withValues(alpha: 0.08),
-                            ],
-                          ),
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.12),
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Good ${_getGreeting()},',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: Colors.white.withOpacity(0.9),
+                                    letterSpacing: 0.5,
+                                  ),
                             ),
-                          ),
-                        ),
-                        child: SafeArea(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Good ${_getGreeting()},',
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                        color: Colors.white.withValues(alpha: 0.75),
-                                        letterSpacing: 0.5,
-                                      ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  user.displayName.isNotEmpty ? user.displayName : 'Learner',
-                                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                              ],
+                            const SizedBox(height: 2),
+                            Text(
+                              user.displayName.isNotEmpty ? user.displayName : 'Learner',
+                              style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                    color: Colors.white,
+                                  ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ),
@@ -245,7 +225,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         Text(
                           'Practice by Topic',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
@@ -301,7 +280,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         Text(
                           'Quick Actions',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
@@ -472,8 +450,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     Color accent,
   ) {
     return GlassCard(
-      blur: 16,
-      opacity: 0.18,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       child: Column(
         children: [
@@ -490,10 +466,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.white.withValues(alpha: 0.75),
-            ),
+            style: Theme.of(ctx).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
         ],
@@ -502,11 +475,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ── Baseline Banner ────────────────────────────────────────────────────────
-  Widget _buildBaselineBanner(BuildContext ctx, String userId) {
+  Widget _buildBaselineBanner(BuildContext context, String userId) {
     return GestureDetector(
       onTap: () {
         final prompt = IELTSPrompts.getRandomPromptFromPart(1);
-        Navigator.of(ctx).push(
+        Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => RecordingScreen(
               prompt: prompt,
@@ -516,28 +489,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFffd166), Color(0xFFef8c59)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFffd166).withValues(alpha: 0.35),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+      child: GlassCard(
+        backgroundColor: AppColors.secondary, // Solid blue background
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
+                color: Colors.white.withOpacity(0.25),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.flag_outlined, color: Colors.white, size: 26),
@@ -547,11 +507,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Complete Your Baseline',
-                    style: TextStyle(
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.white,
-                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -576,8 +535,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Today's Practice Card ──────────────────────────────────────────────────
   Widget _buildTodayCard(BuildContext ctx, Prompt prompt, String userId) {
     return GlassCard(
-      blur: 18,
-      opacity: 0.22,
       padding: const EdgeInsets.all(22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -587,9 +544,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-                  ),
+                  gradient: AppColors.premiumGradient,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.today, color: Colors.white, size: 22),
@@ -601,18 +556,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     Text(
                       "Today's Practice",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     Text(
                       'Part ${prompt.ieltsPartNumber} · ${prompt.category}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.65),
-                        fontSize: 12,
-                      ),
+                      style: Theme.of(ctx).textTheme.bodySmall,
                     ),
                   ],
                 ),
@@ -620,15 +568,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: AppColors.primary.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   prompt.difficulty,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                  style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -638,17 +585,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AppColors.backgroundOffWhite,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              border: Border.all(color: AppColors.borderLight),
             ),
             child: Text(
               prompt.text,
-              style: TextStyle(
-                fontSize: 15,
-                height: 1.65,
-                color: Colors.white.withValues(alpha: 0.92),
-              ),
+              style: Theme.of(ctx).textTheme.bodyLarge,
             ),
           ),
           const SizedBox(height: 18),
@@ -680,15 +623,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return GestureDetector(
       onTap: onTap,
       child: GlassCard(
-        blur: 14,
-        opacity: 0.18,
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.25),
+                color: accent.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: accent, size: 24),
@@ -696,19 +637,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 10),
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(ctx).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 3),
             Text(
               subtitle,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.65),
-                fontSize: 11,
-              ),
+              style: Theme.of(ctx).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),
           ],
@@ -729,15 +663,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return GestureDetector(
       onTap: onTap,
       child: GlassCard(
-        blur: 14,
-        opacity: 0.18,
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.2),
+                color: accent.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: accent, size: 22),
@@ -749,26 +681,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.65),
-                      fontSize: 12,
-                    ),
+                    style: Theme.of(ctx).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: Colors.white.withValues(alpha: 0.5),
+              color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.3),
             ),
           ],
         ),

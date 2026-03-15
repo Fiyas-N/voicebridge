@@ -66,7 +66,7 @@ class GrammarAnalysisService {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'model': 'llama-3.1-70b-versatile',
+          'model': 'llama-3.3-70b-versatile',
           'messages': [
             {
               'role': 'system',
@@ -108,7 +108,7 @@ Be strict but fair. Score based on:
         final content = data['choices'][0]['message']['content'];
         return _parseGrammarResponse(content);
       } else {
-        throw Exception('Grammar analysis failed: ${response.statusCode}');
+        throw Exception('Grammar analysis failed: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Grammar analysis error: $e');

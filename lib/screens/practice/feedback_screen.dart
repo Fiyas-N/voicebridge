@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../data/models/session.dart';
 import '../../data/models/user_profile.dart';
@@ -128,8 +129,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     final scores = widget.session.scores;
     if (scores == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFF1a1a2e),
-        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+        backgroundColor: AppColors.backgroundOffWhite,
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
     }
 
@@ -163,7 +164,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
                     onPressed: () => Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(builder: (_) => const HomeScreen()),
                       (r) => false,
@@ -172,7 +173,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   title: Text(
                     widget.isBaseline ? 'Baseline Results' : 'Session Results',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textDark,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -308,13 +309,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           const _SectionHeader(text: '💬  AI Feedback'),
                           const SizedBox(height: 14),
                           GlassCard(
-                            blur: 14,
-                            opacity: 0.18,
                             padding: const EdgeInsets.all(22),
                             child: Text(
                               feedback,
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.textDark,
                                 fontSize: 14,
                                 height: 1.7,
                               ),
@@ -328,19 +327,17 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           GestureDetector(
                             onTap: () => setState(() => _showTranscript = !_showTranscript),
                             child: GlassCard(
-                              blur: 14,
-                              opacity: 0.18,
                               padding: const EdgeInsets.all(18),
                               child: Row(
                                 children: [
                                   const Icon(Icons.text_snippet_outlined,
-                                      color: Colors.white70, size: 20),
+                                      color: AppColors.textMedium, size: 20),
                                   const SizedBox(width: 10),
                                   const Expanded(
                                     child: Text(
                                       'Pronunciation Highlight',
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: AppColors.textDark,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
                                       ),
@@ -350,7 +347,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                     _showTranscript
                                         ? Icons.expand_less_rounded
                                         : Icons.expand_more_rounded,
-                                    color: Colors.white54,
+                                    color: AppColors.textMedium,
                                   ),
                                 ],
                               ),
@@ -373,7 +370,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                         ? WordHighlightWidget(words: words)
                                         : Text(transcript,
                                             style: const TextStyle(
-                                              color: Colors.white,
+                                              color: AppColors.textDark,
                                               fontSize: 14,
                                               height: 1.7,
                                             )),
@@ -398,11 +395,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                 icon: const Icon(Icons.arrow_back_rounded),
                                 label: const Text('Practice Again'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white38),
+                                  foregroundColor: AppColors.textDark,
+                                  side: const BorderSide(color: AppColors.borderMedium, width: 2),
                                   padding: const EdgeInsets.symmetric(vertical: 15),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
                               ),
@@ -420,11 +417,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                 icon: const Icon(Icons.home_rounded),
                                 label: Text(widget.isBaseline ? 'Continue' : 'Home'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF764ba2),
+                                  backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(vertical: 15),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                   elevation: 0,
                                 ),
@@ -487,7 +484,7 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        color: Colors.white,
+        color: AppColors.textDark,
         fontSize: 17,
         fontWeight: FontWeight.bold,
       ),
@@ -533,7 +530,7 @@ class _AnimatedScoreBar extends StatelessWidget {
                   Text(
                     label,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textDark,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -556,7 +553,7 @@ class _AnimatedScoreBar extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: (score / 100) * animation.value,
                     minHeight: 8,
-                    backgroundColor: Colors.white.withValues(alpha: 0.12),
+                    backgroundColor: AppColors.borderLight,
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),

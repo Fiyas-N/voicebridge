@@ -32,7 +32,7 @@ class FeedbackService {
           'Content-Type': 'application/json',
         },
         body: jsonEncode({
-          'model': 'llama-3.1-70b-versatile',
+          'model': 'llama-3.3-70b-versatile',
           'messages': [
             {
               'role': 'system',

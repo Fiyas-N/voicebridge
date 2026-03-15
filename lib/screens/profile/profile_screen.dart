@@ -94,7 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.primaryBlue),
+                borderSide: const BorderSide(color: AppColors.primary),
                 borderRadius: BorderRadius.circular(12),
               ),
               filled: true,
@@ -119,7 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Name updated!'),
-                        backgroundColor: AppColors.successGreen,
+                        backgroundColor: AppColors.success,
                       ),
                     );
                   }
@@ -128,14 +128,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                           content: Text('Error: $e'),
-                          backgroundColor: AppColors.errorRed),
+                          backgroundColor: AppColors.error),
                     );
                   }
                 }
               },
               child: const Text('Save',
                   style: TextStyle(
-                      color: AppColors.primaryBlue,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.bold)),
             ),
           ],
@@ -178,7 +178,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           Positioned(
             top: -80,
             right: -60,
-            child: _glowCircle(200, AppColors.primaryBlue, 0.12),
+            child: _glowCircle(200, AppColors.primary, 0.12),
           ),
           Positioned(
             bottom: 100,
@@ -254,7 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     shape: BoxShape.circle,
                                     gradient: LinearGradient(
                                       colors: [
-                                        AppColors.primaryBlue,
+                                        AppColors.primary,
                                         AppColors.accentPurple,
                                       ],
                                       begin: Alignment.topLeft,
@@ -262,7 +262,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: AppColors.primaryBlue
+                                        color: AppColors.primary
                                             .withValues(alpha: 0.4),
                                         blurRadius: 16,
                                         spreadRadius: 2,
@@ -287,7 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   child: Container(
                                     padding: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryBlue,
+                                      color: AppColors.primary,
                                       shape: BoxShape.circle,
                                       border: Border.all(
                                           color: const Color(0xFF1A1A2E),
@@ -391,7 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             child: _statCard(
                               context,
                               icon: Icons.mic_rounded,
-                              iconColor: AppColors.primaryBlue,
+                              iconColor: AppColors.primary,
                               value: '${user?.totalSessions ?? 0}',
                               label: 'Sessions',
                             ),
@@ -435,7 +435,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   const SizedBox(height: 14),
                                   _scoreBar(context, 'Grammar',
                                       user.baselineScores!.grammar,
-                                      AppColors.primaryBlue),
+                                      AppColors.primary),
                                   const SizedBox(height: 14),
                                   _scoreBar(
                                       context,
@@ -648,10 +648,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.errorRed.withValues(alpha: 0.15),
+        color: AppColors.error.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: AppColors.errorRed.withValues(alpha: 0.4), width: 1),
+            color: AppColors.error.withValues(alpha: 0.4), width: 1),
       ),
       child: Text(
         area,

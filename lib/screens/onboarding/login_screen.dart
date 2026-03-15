@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Login failed: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: AppColors.errorRed,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Enter your email address first'),
-          backgroundColor: AppColors.warningAmber,
+          backgroundColor: AppColors.warning,
         ),
       );
       return;
@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Password reset email sent to $email'),
-            backgroundColor: AppColors.successGreen,
+            backgroundColor: AppColors.success,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: AppColors.errorRed,
+            backgroundColor: AppColors.error,
           ),
         );
       }

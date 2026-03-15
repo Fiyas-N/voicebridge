@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/local/database_helper.dart';
 import '../../data/models/lesson.dart';
+import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/ai_pipeline.dart';
 import '../../services/gamification_service.dart';
 import '../../widgets/common/glass_card.dart';
 import '../practice/recording_screen.dart';
-import 'package:provider/provider.dart';
-import '../../data/models/prompt.dart';
 
 class LessonsScreen extends StatefulWidget {
   const LessonsScreen({super.key});
@@ -109,44 +109,57 @@ class _LessonsScreenState extends State<LessonsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
+      backgroundColor: AppColors.backgroundOffWhite,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         title: const Text(
           'Lessons',
           style: TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+              color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 22),
         ),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white38,
+          indicatorColor: AppColors.primary,
+          labelColor: AppColors.textDark,
+          unselectedLabelColor: AppColors.textMedium,
           labelStyle:
               const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          dividerColor: AppColors.borderLight,
           tabs: LessonLibrary.levels
               .map((l) => Tab(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: _tabController.index ==
                                 LessonLibrary.levels.indexOf(l)
-                            ? _levelColors[l]!.withValues(alpha: 0.25)
+                            ? _levelColors[l]!.withOpacity(0.15)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
+                        border: _tabController.index ==
+                                LessonLibrary.levels.indexOf(l)
+                            ? Border.all(color: _levelColors[l]!, width: 2)
+                            : Border.all(color: Colors.transparent, width: 2),
                       ),
-                      child: Text(l),
+                      child: Text(
+                        l,
+                        style: TextStyle(
+                          color: _tabController.index == LessonLibrary.levels.indexOf(l) 
+                              ? _levelColors[l] 
+                              : AppColors.textMedium,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ))
               .toList(),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : TabBarView(
               controller: _tabController,
               children: LessonLibrary.levels
@@ -158,7 +171,7 @@ class _LessonsScreenState extends State<LessonsScreen>
 
   Widget _buildLevelTab(String cefr) {
     final lessons = LessonLibrary.forLevel(cefr);
-    final color = _levelColors[cefr] ?? Colors.white;
+    final color = _levelColors[cefr] ?? AppColors.primary;
     final completedCount =
         lessons.where((l) => _completedLessons[l.id] == true).length;
 
@@ -167,7 +180,7 @@ class _LessonsScreenState extends State<LessonsScreen>
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
             child: Row(
               children: [
                 // Level badge
@@ -175,9 +188,9 @@ class _LessonsScreenState extends State<LessonsScreen>
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.2),
+                    color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color, width: 1.5),
+                    border: Border.all(color: color, width: 2),
                   ),
                   child: Text(
                     cefr,
@@ -190,9 +203,10 @@ class _LessonsScreenState extends State<LessonsScreen>
                 const SizedBox(width: 12),
                 Text(
                   '$completedCount / ${lessons.length} completed',
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 13),
+                  style: const TextStyle(
+                      color: AppColors.textMedium,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
                 ),
                 const Spacer(),
                 // Progress ring
@@ -200,13 +214,12 @@ class _LessonsScreenState extends State<LessonsScreen>
                   width: 36,
                   height: 36,
                   child: CircularProgressIndicator(
-                    value: lessons.isEmpty
+                   value: lessons.isEmpty
                         ? 0
                         : completedCount / lessons.length,
-                    backgroundColor:
-                        Colors.white.withValues(alpha: 0.1),
+                    backgroundColor: AppColors.borderLight,
                     valueColor: AlwaysStoppedAnimation(color),
-                    strokeWidth: 3,
+                    strokeWidth: 4,
                   ),
                 ),
               ],
@@ -219,7 +232,7 @@ class _LessonsScreenState extends State<LessonsScreen>
             childCount: lessons.length,
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        const SliverToBoxAdapter(child: SizedBox(height: 40)),
       ],
     );
   }
@@ -227,34 +240,32 @@ class _LessonsScreenState extends State<LessonsScreen>
   Widget _buildLessonCard(Lesson lesson, Color color) {
     final done = _completedLessons[lesson.id] == true;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: GestureDetector(
         onTap: () => _startLesson(lesson),
         child: GlassCard(
-          blur: 15,
-          opacity: 0.15,
           padding: const EdgeInsets.all(18),
           child: Row(
             children: [
               // Emoji icon
               Container(
-                width: 52,
-                height: 52,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   color: done
-                      ? color.withValues(alpha: 0.25)
-                      : Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(14),
+                      ? color.withOpacity(0.15)
+                      : AppColors.backgroundOffWhite,
+                  borderRadius: BorderRadius.circular(16),
                   border: done
-                      ? Border.all(color: color, width: 1.5)
-                      : null,
+                      ? Border.all(color: color, width: 2)
+                      : Border.all(color: AppColors.borderLight, width: 2),
                 ),
                 child: Center(
                   child: Text(lesson.emoji,
-                      style: const TextStyle(fontSize: 26)),
+                      style: const TextStyle(fontSize: 28)),
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,39 +276,46 @@ class _LessonsScreenState extends State<LessonsScreen>
                           child: Text(
                             lesson.topic,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textDark,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                           ),
                         ),
                         if (done)
                           Icon(Icons.check_circle_rounded,
-                              color: color, size: 20),
+                              color: color, size: 24),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       lesson.description,
-                      style: TextStyle(
-                          color:
-                              Colors.white.withValues(alpha: 0.6),
-                          fontSize: 12),
+                      style: const TextStyle(
+                          color: AppColors.textMedium,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${lesson.prompts.length} prompts',
-                      style: TextStyle(
-                          color: color.withValues(alpha: 0.8),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${lesson.prompts.length} prompts',
+                        style: TextStyle(
+                            color: color,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded,
-                  color: Colors.white38, size: 22),
+              const SizedBox(width: 12),
+              const Icon(Icons.play_arrow_rounded,
+                  color: AppColors.textLight, size: 28),
             ],
           ),
         ),

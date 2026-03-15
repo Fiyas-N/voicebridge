@@ -132,7 +132,7 @@ Start by giving a warm welcome and asking the first question about the topic.'''
           'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
-          'model': 'llama-3.1-70b-versatile',
+          'model': 'llama-3.3-70b-versatile',
           'messages': messages,
           'max_tokens': 150,
           'temperature': 0.7,

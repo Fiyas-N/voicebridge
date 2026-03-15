@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../data/models/prompt.dart';
 import '../../providers/session_provider.dart';
-import '../../widgets/common/gradient_card.dart';
+import '../../widgets/common/glass_card.dart'; // We use Gamified GlassCard now
 import '../../widgets/common/animated_button.dart';
 import 'feedback_screen.dart';
 
@@ -92,9 +92,7 @@ class _RecordingScreenState extends State<RecordingScreen>
           elevation: 0,
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
-              decoration: const BoxDecoration(
-                gradient: AppColors.primaryGradient,
-              ),
+              color: AppColors.secondary, // Solid vibrant background
               child: SafeArea(
                 child: Padding(
                   padding:
@@ -108,8 +106,8 @@ class _RecordingScreenState extends State<RecordingScreen>
                             ? 'Baseline Assessment'
                             : 'Practice Session',
                         style:
-                            Theme.of(context).textTheme.displayMedium?.copyWith(
-                                  color: AppColors.white,
+                            Theme.of(context).textTheme.displaySmall?.copyWith(
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
                       ),
@@ -117,7 +115,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                         'Part ${widget.prompt.ieltsPartNumber} · ${widget.prompt.category}',
                         style:
                             Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.white.withValues(alpha: 0.8),
+                                  color: Colors.white.withOpacity(0.8),
                                 ),
                       ),
                     ],
@@ -133,19 +131,21 @@ class _RecordingScreenState extends State<RecordingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                GradientCard(
+                GlassCard(
                   padding: const EdgeInsets.all(32),
                   child: Column(
                     children: [
                       const Icon(
                         Icons.chat_bubble_outline,
                         size: 48,
-                        color: AppColors.primaryBlue,
+                        color: AppColors.secondary,
                       ),
                       const SizedBox(height: 24),
                       Text(
                         widget.prompt.text,
-                        style: Theme.of(context).textTheme.headlineMedium,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -154,10 +154,10 @@ class _RecordingScreenState extends State<RecordingScreen>
                 const SizedBox(height: 40),
                 Text(
                   '💡 Recording Tips',
-                  style: Theme.of(context).textTheme.displaySmall,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                GradientCard(
+                GlassCard(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
@@ -181,14 +181,19 @@ class _RecordingScreenState extends State<RecordingScreen>
                           width: 120,
                           height: 120,
                           decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
+                            color: AppColors.secondary,
                             shape: BoxShape.circle,
-                            boxShadow: AppShadows.large,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.borderMedium,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
                           ),
                           child: const Icon(
                             Icons.mic,
                             size: 56,
-                            color: AppColors.white,
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -196,8 +201,8 @@ class _RecordingScreenState extends State<RecordingScreen>
                       Text(
                         'Tap to Start Recording',
                         style:
-                            Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
                                 ),
                       ),
                     ],
@@ -215,44 +220,40 @@ class _RecordingScreenState extends State<RecordingScreen>
   Widget _buildRecordingScreen(SessionProvider sessionProvider) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.errorRed.withValues(alpha: 0.1),
-            AppColors.errorRed.withValues(alpha: 0.05),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: AppColors.error.withOpacity(0.05),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.errorRed, Color(0xFFDC2626)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppColors.error,
             ),
             child: SafeArea(
               bottom: false,
               child: Row(
                 children: [
                   Container(
-                    width: 12,
-                    height: 12,
-                    decoration: const BoxDecoration(
-                      color: AppColors.white,
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.5),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     'Recording...',
                     style:
-                        Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: AppColors.white,
+                        Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
                   ),
@@ -278,41 +279,24 @@ class _RecordingScreenState extends State<RecordingScreen>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: AppColors.errorRed.withValues(
-                                  alpha: 0.3 *
-                                      (1 -
-                                          (_pulseAnimation.value - 1) / 0.3),
+                                color: AppColors.error.withOpacity(
+                                  0.3 * (1 - (_pulseAnimation.value - 1) / 0.3),
                                 ),
-                                width: 2,
+                                width: 4,
                               ),
                             ),
                           ),
                           Container(
                             width: 160,
                             height: 160,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppColors.errorRed,
-                                  Color(0xFFDC2626)
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
+                            decoration: const BoxDecoration(
+                              color: AppColors.error,
                               shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                      AppColors.errorRed.withValues(alpha: 0.4),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                ),
-                              ],
                             ),
                             child: const Icon(
                               Icons.mic,
                               size: 80,
-                              color: AppColors.white,
+                              color: Colors.white,
                             ),
                           ),
                         ],
@@ -325,14 +309,14 @@ class _RecordingScreenState extends State<RecordingScreen>
                     style: Theme.of(context).textTheme.displayLarge?.copyWith(
                           fontSize: 64,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.errorRed,
+                          color: AppColors.error,
                         ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '/ ${widget.isBaseline ? "00:45" : "01:00"}',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AppColors.mediumGray,
+                          color: AppColors.textMedium,
                         ),
                   ),
                   const Spacer(),
@@ -340,7 +324,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                     text: 'Stop Recording',
                     icon: Icons.stop,
                     width: double.infinity,
-                    backgroundColor: AppColors.errorRed,
+                    backgroundColor: AppColors.error,
                     onPressed: _stopRecording,
                   ),
                   const SizedBox(height: 24),
@@ -369,9 +353,7 @@ class _RecordingScreenState extends State<RecordingScreen>
           automaticallyImplyLeading: false,
           flexibleSpace: FlexibleSpaceBar(
             background: Container(
-              decoration: const BoxDecoration(
-                gradient: AppColors.successGradient,
-              ),
+              color: AppColors.success,
               child: SafeArea(
                 child: Padding(
                   padding:
@@ -384,7 +366,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                         'Review Your Recording',
                         style:
                             Theme.of(context).textTheme.displayMedium?.copyWith(
-                                  color: AppColors.white,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
                       ),
@@ -401,29 +383,30 @@ class _RecordingScreenState extends State<RecordingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                GradientCard(
-                  gradient: AppColors.successGradient,
+                GlassCard(
+                  backgroundColor: AppColors.success,
                   padding: const EdgeInsets.all(40),
                   child: Column(
                     children: [
                       const Icon(
                         Icons.check_circle,
                         size: 80,
-                        color: AppColors.white,
+                        color: Colors.white,
                       ),
                       const SizedBox(height: 20),
                       Text(
                         'Recording Complete!',
                         style:
-                            Theme.of(context).textTheme.displaySmall?.copyWith(
-                                  color: AppColors.white,
+                            Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
                                 ),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         'Duration: ${Formatters.formatDuration(session.audioDuration ?? 0)}',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.white.withValues(alpha: 0.9),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.white.withOpacity(0.9),
                             ),
                       ),
                     ],
@@ -478,7 +461,7 @@ class _RecordingScreenState extends State<RecordingScreen>
   Widget _buildTip(String text) {
     return Row(
       children: [
-        const Icon(Icons.check_circle, size: 20, color: AppColors.successGreen),
+        const Icon(Icons.check_circle, size: 20, color: AppColors.primary),
         const SizedBox(width: 12),
         Expanded(
           child: Text(

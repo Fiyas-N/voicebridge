@@ -44,7 +44,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
       vsync: this,
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: AppAnimations.defaultCurve),
+      CurvedAnimation(parent: _controller, curve: AppAnimations.bouncyCurve),
     );
   }
 
@@ -83,12 +83,11 @@ class _AnimatedButtonState extends State<AnimatedButton>
           width: widget.width,
           height: widget.height ?? 56,
           decoration: BoxDecoration(
-            gradient: widget.isPrimary
-                ? AppColors.primaryGradient
-                : null,
-            color: widget.isPrimary ? null : widget.backgroundColor,
+            color: widget.isPrimary ? AppColors.primary : widget.backgroundColor,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: _isPressed ? null : AppShadows.medium,
+            border: widget.isPrimary && !_isPressed 
+                ? const Border(bottom: BorderSide(color: AppColors.primaryDark, width: 4))
+                : null,
           ),
           child: Material(
             color: Colors.transparent,
@@ -103,7 +102,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            widget.textColor ?? AppColors.white,
+                            widget.textColor ?? Colors.white,
                           ),
                         ),
                       )
@@ -114,7 +113,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
                           if (widget.icon != null) ...[
                             Icon(
                               widget.icon,
-                              color: widget.textColor ?? AppColors.white,
+                              color: widget.textColor ?? Colors.white,
                               size: 20,
                             ),
                             const SizedBox(width: 8),
@@ -122,7 +121,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
                           Text(
                             widget.text,
                             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  color: widget.textColor ?? AppColors.white,
+                                  color: widget.textColor ?? Colors.white,
                                 ),
                           ),
                         ],

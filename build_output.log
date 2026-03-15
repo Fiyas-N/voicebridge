@@ -1,0 +1,143 @@
+Running Gradle task 'assembleRelease'...                        
+Warning: The plugin flutter_tts requires Android SDK version 36 or higher.
+For more information about build configuration, see https://flutter.dev/to/review-gradle-config.
+Your project is configured to compile against Android SDK 35, but the following plugin(s) require to be compiled against a higher Android SDK version:
+- flutter_tts compiles against Android SDK 36
+Fix this issue by compiling against the highest Android SDK version (they are backward compatible).
+Add the following to C:\Users\nfiya\source\Desktop\main project\test1\voicebridge_final\android\app\build.gradle.kts:
+
+    android {
+        compileSdk = 36
+        ...
+    }
+lib/widgets/common/main_navigation.dart:53:40: Error: Member not found: 'white'.
+            backgroundColor: AppColors.white,
+                                       ^^^^^
+lib/widgets/common/main_navigation.dart:54:42: Error: Member not found: 'primaryBlue'.
+            selectedItemColor: AppColors.primaryBlue,
+                                         ^^^^^^^^^^^
+lib/widgets/common/main_navigation.dart:55:44: Error: Member not found: 'mediumGray'.
+            unselectedItemColor: AppColors.mediumGray,
+                                           ^^^^^^^^^^
+lib/screens/onboarding/signup_screen.dart:60:40: Error: Member not found: 'errorRed'.
+            backgroundColor: AppColors.errorRed,
+                                       ^^^^^^^^
+lib/screens/onboarding/login_screen.dart:55:40: Error: Member not found: 'errorRed'.
+            backgroundColor: AppColors.errorRed,
+                                       ^^^^^^^^
+lib/screens/onboarding/login_screen.dart:70:38: Error: Member not found: 'warningAmber'.
+          backgroundColor: AppColors.warningAmber,
+                                     ^^^^^^^^^^^^
+lib/screens/onboarding/login_screen.dart:82:40: Error: Member not found: 'successGreen'.
+            backgroundColor: AppColors.successGreen,
+                                       ^^^^^^^^^^^^
+lib/screens/onboarding/login_screen.dart:92:40: Error: Member not found: 'errorRed'.
+            backgroundColor: AppColors.errorRed,
+                                       ^^^^^^^^
+lib/screens/home/home_screen.dart:103:22: Error: Undefined name 'AppColors'.
+              color: AppColors.primary,
+                     ^^^^^^^^^
+lib/screens/home/home_screen.dart:492:26: Error: The getter 'AppColors' isn't defined for the class '_HomeScreenState'.
+ - '_HomeScreenState' is from 'package:voicebridge_final/screens/home/home_screen.dart' ('lib/screens/home/home_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'AppColors'.
+        backgroundColor: AppColors.secondary, // Solid blue background
+                         ^^^^^^^^^
+lib/screens/home/home_screen.dart:546:29: Error: The getter 'AppColors' isn't defined for the class '_HomeScreenState'.
+ - '_HomeScreenState' is from 'package:voicebridge_final/screens/home/home_screen.dart' ('lib/screens/home/home_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'AppColors'.
+                  gradient: AppColors.premiumGradient,
+                            ^^^^^^^^^
+lib/screens/home/home_screen.dart:570:26: Error: The getter 'AppColors' isn't defined for the class '_HomeScreenState'.
+ - '_HomeScreenState' is from 'package:voicebridge_final/screens/home/home_screen.dart' ('lib/screens/home/home_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'AppColors'.
+                  color: AppColors.primary.withOpacity(0.15),
+                         ^^^^^^^^^
+lib/screens/home/home_screen.dart:576:28: Error: The getter 'AppColors' isn't defined for the class '_HomeScreenState'.
+ - '_HomeScreenState' is from 'package:voicebridge_final/screens/home/home_screen.dart' ('lib/screens/home/home_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'AppColors'.
+                    color: AppColors.primaryDark,
+                           ^^^^^^^^^
+lib/screens/home/home_screen.dart:587:22: Error: The getter 'AppColors' isn't defined for the class '_HomeScreenState'.
+ - '_HomeScreenState' is from 'package:voicebridge_final/screens/home/home_screen.dart' ('lib/screens/home/home_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'AppColors'.
+              color: AppColors.backgroundOffWhite,
+                     ^^^^^^^^^
+lib/screens/home/home_screen.dart:589:41: Error: The getter 'AppColors' isn't defined for the class '_HomeScreenState'.
+ - '_HomeScreenState' is from 'package:voicebridge_final/screens/home/home_screen.dart' ('lib/screens/home/home_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'AppColors'.
+              border: Border.all(color: AppColors.borderLight),
+                                        ^^^^^^^^^
+lib/screens/profile/profile_screen.dart:97:63: Error: Member not found: 'primaryBlue'.
+                borderSide: const BorderSide(color: AppColors.primaryBlue),
+                                                              ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:122:52: Error: Member not found: 'successGreen'.
+                        backgroundColor: AppColors.successGreen,
+                                                   ^^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:131:54: Error: Member not found: 'errorRed'.
+                          backgroundColor: AppColors.errorRed),
+                                                     ^^^^^^^^
+lib/screens/profile/profile_screen.dart:138:40: Error: Member not found: 'primaryBlue'.
+                      color: AppColors.primaryBlue,
+                                       ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:181:47: Error: Member not found: 'primaryBlue'.
+            child: _glowCircle(200, AppColors.primaryBlue, 0.12),
+                                              ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:257:51: Error: Member not found: 'primaryBlue'.
+                                        AppColors.primaryBlue,
+                                                  ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:265:58: Error: Member not found: 'primaryBlue'.
+                                        color: AppColors.primaryBlue
+                                                         ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:290:56: Error: Member not found: 'primaryBlue'.
+                                      color: AppColors.primaryBlue,
+                                                       ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:394:52: Error: Member not found: 'primaryBlue'.
+                              iconColor: AppColors.primaryBlue,
+                                                   ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:438:49: Error: Member not found: 'primaryBlue'.
+                                      AppColors.primaryBlue),
+                                                ^^^^^^^^^^^
+lib/screens/profile/profile_screen.dart:651:26: Error: Member not found: 'errorRed'.
+        color: AppColors.errorRed.withValues(alpha: 0.15),
+                         ^^^^^^^^
+lib/screens/profile/profile_screen.dart:654:30: Error: Member not found: 'errorRed'.
+            color: AppColors.errorRed.withValues(alpha: 0.4), width: 1),
+                             ^^^^^^^^
+lib/widgets/common/animated_button.dart:47:65: Error: Member not found: 'defaultCurve'.
+      CurvedAnimation(parent: _controller, curve: AppAnimations.defaultCurve),
+                                                                ^^^^^^^^^^^^
+lib/widgets/common/animated_button.dart:87:29: Error: Member not found: 'primaryGradient'.
+                ? AppColors.primaryGradient
+                            ^^^^^^^^^^^^^^^
+lib/widgets/common/animated_button.dart:106:59: Error: Member not found: 'white'.
+                            widget.textColor ?? AppColors.white,
+                                                          ^^^^^
+lib/widgets/common/animated_button.dart:117:68: Error: Member not found: 'white'.
+                              color: widget.textColor ?? AppColors.white,
+                                                                   ^^^^^
+lib/widgets/common/animated_button.dart:125:72: Error: Member not found: 'white'.
+                                  color: widget.textColor ?? AppColors.white,
+                                                                       ^^^^^
+lib/widgets/common/animated_button.dart:91:44: Error: The getter 'AppShadows' isn't defined for the class '_AnimatedButtonState'.
+ - '_AnimatedButtonState' is from 'package:voicebridge_final/widgets/common/animated_button.dart' ('lib/widgets/common/animated_button.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'AppShadows'.
+            boxShadow: _isPressed ? null : AppShadows.medium,
+                                           ^^^^^^^^^^
+Target kernel_snapshot_program failed: Exception
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileFlutterBuildRelease'.
+> Process 'command 'C:\Users\nfiya\AppData\Local\flutter\bin\flutter.bat'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 19s
+Running Gradle task 'assembleRelease'...                           19.3s
+Gradle task assembleRelease failed with exit code 1
