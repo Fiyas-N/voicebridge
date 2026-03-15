@@ -35,7 +35,7 @@ class GlassCard extends StatelessWidget {
         borderRadius: borderRadius ?? BorderRadius.circular(24),
         boxShadow: boxShadow ?? [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -52,13 +52,13 @@ class GlassCard extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withOpacity(opacity),
-                  Colors.white.withOpacity(opacity * 0.5),
+                  Colors.white.withValues(alpha: opacity),
+                  Colors.white.withValues(alpha: opacity * 0.5),
                 ],
               ),
               borderRadius: borderRadius ?? BorderRadius.circular(24),
               border: border ?? Border.all(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 width: 1.5,
               ),
             ),
@@ -134,7 +134,7 @@ class _GlassButtonState extends State<GlassButton>
             borderRadius: widget.borderRadius ?? BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -155,13 +155,13 @@ class _GlassButtonState extends State<GlassButton>
                 decoration: BoxDecoration(
                   gradient: widget.gradient ?? LinearGradient(
                     colors: [
-                      Colors.white.withOpacity(widget.opacity),
-                      Colors.white.withOpacity(widget.opacity * 0.5),
+                      Colors.white.withValues(alpha: widget.opacity),
+                      Colors.white.withValues(alpha: widget.opacity * 0.5),
                     ],
                   ),
                   borderRadius: widget.borderRadius ?? BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.4), // Stronger border
+                    color: Colors.white.withValues(alpha: 0.4), // Stronger border
                     width: 2.0, // Thicker border
                   ),
                 ),
@@ -237,3 +237,4 @@ class _LiquidGlassContainerState extends State<LiquidGlassContainer>
     );
   }
 }
+

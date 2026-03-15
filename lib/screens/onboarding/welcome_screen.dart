@@ -112,7 +112,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   Text(
                     'Master English Speaking\nwith AI-Powered Feedback',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                     textAlign: TextAlign.center,
                   ),
@@ -231,3 +231,4 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     );
   }
 }
+

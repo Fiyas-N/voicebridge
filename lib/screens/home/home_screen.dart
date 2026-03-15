@@ -1,10 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../data/local/database_helper.dart';
 import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/gamification_service.dart';
 import '../../widgets/common/glass_card.dart';
 import '../history/history_screen.dart';
+import '../lessons/lessons_screen.dart';
+import '../practice/conversation_screen.dart';
 import '../practice/recording_screen.dart';
 import '../progress/progress_screen.dart';
 import '../settings/settings_screen.dart';
@@ -21,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _bannerController;
   late Animation<double> _bannerAnimation;
   int _tipIndex = 0;
+  Map<String, dynamic> _gamificationStats = {};
 
   static const List<Map<String, String>> _tips = [
     {'icon': '🎯', 'tip': 'Speak clearly and at a natural pace — don\'t rush answers.'},
@@ -53,6 +58,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
     _bannerAnimation = CurvedAnimation(parent: _bannerController, curve: Curves.elasticOut);
     _bannerController.forward();
+
+    // Load XP/daily goal after first frame (needs auth context)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadGamificationStats());
   }
 
   @override
@@ -60,6 +68,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _tipController.dispose();
     _bannerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadGamificationStats() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final userId = auth.currentUser?.userId;
+    if (userId == null) return;
+    try {
+      final stats = await GamificationService().getStats(userId);
+      if (mounted) setState(() => _gamificationStats = stats);
+    } catch (_) {}
   }
 
   @override
@@ -209,6 +227,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 16),
+
+                        // ── XP & Daily Goal Bar ──────────────────────────────
+                        _XpDailyGoalCard(stats: _gamificationStats),
                         const SizedBox(height: 24),
 
                         // ── Baseline Prompt (if not done) ──────────────────
@@ -286,6 +308,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         const SizedBox(height: 12),
                         _buildActionButton(
                           context,
+                          Icons.forum_rounded,
+                          '🎙️  Live Conversation',
+                          'Talk with an AI in real-time',
+                          const Color(0xFFff6b9d),
+                          () => _showConversationTopics(context),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildActionButton(
+                          context,
+                          Icons.menu_book_rounded,
+                          '📚  Lessons Library',
+                          'Structured lessons A1 → C2',
+                          const Color(0xFFffd166),
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const LessonsScreen()),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildActionButton(
+                          context,
                           Icons.history_outlined,
                           'Session History',
                           'Review your past recordings',
@@ -318,6 +360,93 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showConversationTopics(BuildContext ctx) {
+    const topics = [
+      ('Daily Life', '🌅', 'Talk about your everyday routine and habits'),
+      ('Travel', '✈️', 'Discuss places you\'ve visited or want to visit'),
+      ('Work & Career', '💼', 'Talk about your job, goals, and ambitions'),
+      ('Technology', '📱', 'Discuss how technology shapes your life'),
+      ('Health & Fitness', '🏃', 'Talk about exercise and healthy habits'),
+      ('Culture & Society', '🌍', 'Discuss social issues and cultural topics'),
+    ];
+
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: const Color(0xFF1e1e3a),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Choose a Conversation Topic',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            ...topics.map((t) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(
+                        ctx,
+                        MaterialPageRoute(
+                          builder: (_) => ConversationScreen(
+                            topic: t.$1,
+                            topicEmoji: t.$2,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12)),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(t.$2, style: const TextStyle(fontSize: 24)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(t.$1,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14)),
+                                Text(t.$3,
+                                    style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.55),
+                                        fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded,
+                              color: Colors.white38),
+                        ],
+                      ),
+                    ),
+                  ),
+                )),
+          ],
+        ),
       ),
     );
   }
@@ -762,6 +891,141 @@ class _GradientButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+// ── XP & Daily Goal Card ───────────────────────────────────────────────────
+class _XpDailyGoalCard extends StatelessWidget {
+  final Map<String, dynamic> stats;
+  const _XpDailyGoalCard({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    if (stats.isEmpty) return const SizedBox.shrink();
+
+    final xp = stats['xp'] as int? ?? 0;
+    final cefr = stats['cefrFromXP'] as String? ?? 'A1';
+    final xpNext = stats['xpForNext'] as int? ?? 300;
+    final dailyGoal = stats['dailyGoal'] as int? ?? 3;
+    final dailyDone = stats['dailySessionsToday'] as int? ?? 0;
+    final dailyPct = (stats['dailyProgress'] as double? ?? 0.0).clamp(0.0, 1.0);
+
+    return GlassCard(
+      blur: 16,
+      opacity: 0.18,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // CEFR from XP badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  cefr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '⭐  $xp XP',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          'Next: $xpNext XP',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: xpNext > 0 ? (xp / xpNext).clamp(0.0, 1.0) : 1.0,
+                        minHeight: 7,
+                        backgroundColor: Colors.white.withValues(alpha: 0.12),
+                        valueColor: const AlwaysStoppedAnimation(Color(0xFFffd166)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Daily goal ring
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: CircularProgressIndicator(
+                      value: dailyPct,
+                      strokeWidth: 4,
+                      backgroundColor: Colors.white.withValues(alpha: 0.12),
+                      valueColor: AlwaysStoppedAnimation(
+                        dailyPct >= 1.0
+                            ? const Color(0xFF6bcb77)
+                            : const Color(0xFF4ecdc4),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '$dailyDone/$dailyGoal',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (dailyPct >= 1.0) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Text('🎉', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 6),
+                Text(
+                  'Daily goal complete!',
+                  style: TextStyle(
+                    color: const Color(0xFF6bcb77).withValues(alpha: 0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

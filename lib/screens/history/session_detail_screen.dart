@@ -61,7 +61,7 @@ class SessionDetailScreen extends StatelessWidget {
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                         ),
                         child: SafeArea(
                           child: Padding(
@@ -87,7 +87,7 @@ class SessionDetailScreen extends StatelessWidget {
                                   DateFormat('MMMM d, yyyy · h:mm a')
                                       .format(createdAt),
                                   style: TextStyle(
-                                      color: Colors.white.withOpacity(0.8),
+                                      color: Colors.white.withValues(alpha: 0.8),
                                       fontSize: 13),
                                 ),
                               ],
@@ -120,7 +120,11 @@ class SessionDetailScreen extends StatelessWidget {
                                       'Overall'),
                                   const SizedBox(width: 32),
                                   _bigScore(context, band.toStringAsFixed(1),
-                                      'Speaking Band'),
+                                      'Band'),
+                                  const SizedBox(width: 32),
+                                  _bigScore(context,
+                                    session['cefr_level'] as String? ?? 'A1',
+                                    'CEFR Level'),
                                 ],
                               ),
                               const SizedBox(height: 24),
@@ -197,7 +201,7 @@ class SessionDetailScreen extends StatelessWidget {
                 fontWeight: FontWeight.bold)),
         Text(label,
             style: TextStyle(
-                color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
       ],
     );
   }
@@ -212,7 +216,7 @@ class SessionDetailScreen extends StatelessWidget {
           children: [
             Text(label,
                 style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
+                    color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 13,
                     fontWeight: FontWeight.w500)),
             Text('${score.toInt()}',
@@ -228,7 +232,7 @@ class SessionDetailScreen extends StatelessWidget {
           child: LinearProgressIndicator(
             value: pct,
             minHeight: 8,
-            backgroundColor: Colors.white.withOpacity(0.15),
+            backgroundColor: Colors.white.withValues(alpha: 0.15),
             valueColor:
                 const AlwaysStoppedAnimation<Color>(Colors.white),
           ),
@@ -264,7 +268,7 @@ class SessionDetailScreen extends StatelessWidget {
           const SizedBox(height: 12),
           Text(body,
               style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   fontSize: 14,
                   height: 1.5)),
         ],
@@ -272,3 +276,4 @@ class SessionDetailScreen extends StatelessWidget {
     );
   }
 }
+

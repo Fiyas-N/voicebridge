@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../screens/home/home_screen.dart';
+import '../../screens/lessons/lessons_screen.dart';
 import '../../screens/progress/progress_screen.dart';
 import '../../screens/history/history_screen.dart';
-import '../../screens/settings/settings_screen.dart';
+import '../../screens/profile/profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -17,9 +18,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
+    LessonsScreen(),
     ProgressScreen(),
     HistoryScreen(),
-    SettingsScreen(),
+    ProfileScreen(),
   ];
 
   @override
@@ -46,11 +48,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
+            onTap: (index) => setState(() => _currentIndex = index),
             type: BottomNavigationBarType.fixed,
             backgroundColor: AppColors.white,
             selectedItemColor: AppColors.primaryBlue,
@@ -65,6 +63,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 label: 'Home',
               ),
               BottomNavigationBarItem(
+                icon: Icon(Icons.menu_book_outlined),
+                activeIcon: Icon(Icons.menu_book),
+                label: 'Lessons',
+              ),
+              BottomNavigationBarItem(
                 icon: Icon(Icons.trending_up_outlined),
                 activeIcon: Icon(Icons.trending_up),
                 label: 'Progress',
@@ -75,9 +78,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 label: 'History',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.settings_outlined),
-                activeIcon: Icon(Icons.settings),
-                label: 'Settings',
+                icon: Icon(Icons.person_outline),
+                activeIcon: Icon(Icons.person),
+                label: 'Profile',
               ),
             ],
           ),

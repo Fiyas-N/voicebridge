@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../../core/theme/app_theme.dart';
 import '../../data/local/database_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/glass_card.dart';
@@ -120,8 +119,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final user = authProvider.currentUser;
+    Provider.of<AuthProvider>(context); // ensures rebuild on auth changes
 
     return Scaffold(
       body: Stack(
@@ -238,7 +236,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             Icon(
               Icons.info_outline,
               size: 64,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
             ),
             const SizedBox(height: 20),
             Text(
@@ -253,7 +251,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             Text(
               'Complete practice sessions to see your progress!',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
               textAlign: TextAlign.center,
             ),
@@ -560,3 +558,4 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 }
+

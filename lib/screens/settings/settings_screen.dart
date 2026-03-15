@@ -38,9 +38,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               labelText: 'Display Name',
-              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+              labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
               enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
@@ -48,14 +48,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               filled: true,
-              fillColor: Colors.white.withOpacity(0.1),
+              fillColor: Colors.white.withValues(alpha: 0.1),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text('Cancel',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7))),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
             ),
             TextButton(
               onPressed: () async {
@@ -126,7 +126,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () => Navigator.pop(ctx),
                 child: Text('Cancel',
                     style:
-                        TextStyle(color: Colors.white.withOpacity(0.7))),
+                        TextStyle(color: Colors.white.withValues(alpha: 0.7))),
               ),
               TextButton(
                 onPressed: () async {
@@ -210,7 +210,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: Text('Cancel',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7))),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
             ),
             TextButton(
               onPressed: () async {
@@ -265,7 +265,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () => Navigator.of(context).pop(),
               child: Text('Cancel',
                   style:
-                      TextStyle(color: Colors.white.withOpacity(0.7))),
+                      TextStyle(color: Colors.white.withValues(alpha: 0.7))),
             ),
             TextButton(
               onPressed: () {
@@ -295,9 +295,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
           borderRadius: BorderRadius.circular(12),
         ),
         focusedBorder: OutlineInputBorder(
@@ -305,7 +305,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
+        fillColor: Colors.white.withValues(alpha: 0.1),
       ),
     );
   }
@@ -334,13 +334,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: Theme.of(context)
             .textTheme
             .bodySmall
-            ?.copyWith(color: Colors.white.withOpacity(0.8)),
+            ?.copyWith(color: Colors.white.withValues(alpha: 0.8)),
       ),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
         activeColor: Colors.white,
-        activeTrackColor: Colors.white.withOpacity(0.5),
+        activeTrackColor: Colors.white.withValues(alpha: 0.5),
       ),
     );
   }
@@ -370,10 +370,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: Theme.of(context)
             .textTheme
             .bodySmall
-            ?.copyWith(color: Colors.white.withOpacity(0.8)),
+            ?.copyWith(color: Colors.white.withValues(alpha: 0.8)),
       ),
       trailing:
-          Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.5)),
+          Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.5)),
       onTap: onTap,
     );
   }
@@ -415,8 +415,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(colors: [
-                            Colors.white.withOpacity(0.2),
-                            Colors.white.withOpacity(0.1),
+                            Colors.white.withValues(alpha: 0.2),
+                            Colors.white.withValues(alpha: 0.1),
                           ]),
                         ),
                         child: SafeArea(
@@ -444,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       .bodyMedium
                                       ?.copyWith(
                                           color:
-                                              Colors.white.withOpacity(0.9)),
+                                              Colors.white.withValues(alpha: 0.9)),
                                 ),
                               ],
                             ),
@@ -474,7 +474,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   width: 70,
                                   height: 70,
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Colors.white.withValues(alpha: 0.3),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
@@ -511,7 +511,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         user.email,
                                         style: TextStyle(
                                             color: Colors.white
-                                                .withOpacity(0.8),
+                                                .withValues(alpha: 0.8),
                                             fontSize: 14),
                                       ),
                                       const SizedBox(height: 8),
@@ -559,7 +559,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               Divider(
                                   height: 1,
-                                  color: Colors.white.withOpacity(0.1)),
+                                  color: Colors.white.withValues(alpha: 0.1)),
                               _buildGlassSwitchTile(
                                 context,
                                 Icons.volume_up_outlined,
@@ -570,7 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               Divider(
                                   height: 1,
-                                  color: Colors.white.withOpacity(0.1)),
+                                  color: Colors.white.withValues(alpha: 0.1)),
                               _buildGlassSwitchTile(
                                 context,
                                 Icons.vibration_outlined,
@@ -602,7 +602,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               Divider(
                                   height: 1,
-                                  color: Colors.white.withOpacity(0.1)),
+                                  color: Colors.white.withValues(alpha: 0.1)),
                               _buildGlassActionTile(
                                 context,
                                 Icons.lock_outline,
@@ -613,7 +613,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               Divider(
                                   height: 1,
-                                  color: Colors.white.withOpacity(0.1)),
+                                  color: Colors.white.withValues(alpha: 0.1)),
                               _buildGlassActionTile(
                                 context,
                                 Icons.email_outlined,
@@ -666,7 +666,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               Divider(
                                   height: 1,
-                                  color: Colors.white.withOpacity(0.1)),
+                                  color: Colors.white.withValues(alpha: 0.1)),
                               _buildGlassActionTile(
                                 context,
                                 Icons.delete_forever_outlined,
@@ -686,7 +686,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Text(
                             'VoiceBridge v1.0.0',
                             style: TextStyle(
-                                color: Colors.white.withOpacity(0.4),
+                                color: Colors.white.withValues(alpha: 0.4),
                                 fontSize: 13),
                           ),
                         ),
@@ -695,7 +695,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Text(
                             'Your Speaking Practice Partner',
                             style: TextStyle(
-                                color: Colors.white.withOpacity(0.3),
+                                color: Colors.white.withValues(alpha: 0.3),
                                 fontSize: 12),
                           ),
                         ),
@@ -726,7 +726,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
       ),
       child:
@@ -734,3 +734,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+

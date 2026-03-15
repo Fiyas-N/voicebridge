@@ -1,8 +1,14 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/utils/validators.dart';
 import '../../data/models/session.dart';
+import '../../data/models/user_profile.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/ai_pipeline.dart';
+import '../../services/firebase_service.dart';
+import '../../services/speech_to_text_service.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/word_highlight_widget.dart';
 import '../home/home_screen.dart';
 
 class FeedbackScreen extends StatefulWidget {
@@ -69,6 +75,54 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     super.dispose();
   }
 
+  Future<void> _markBaselineComplete(BuildContext ctx) async {
+    final scores = widget.session.scores;
+    try {
+      final firebaseService = FirebaseService();
+      final authProvider = Provider.of<AuthProvider>(ctx, listen: false);
+      final uid = firebaseService.currentUserId;
+      if (uid != null && scores != null) {
+        // Update Firestore
+        await firebaseService.markBaselineCompleted(
+          userId: uid,
+          scores: BaselineScores(
+            fluency: scores.fluency,
+            grammar: scores.grammar,
+            pronunciation: scores.pronunciation,
+            composite: scores.composite,
+          ),
+          weakAreas: _inferWeakAreas(scores),
+        );
+        // Refresh in-memory profile so the home screen banner disappears
+        final updated = authProvider.currentUser?.copyWith(
+          baselineCompleted: true,
+          baselineScores: BaselineScores(
+            fluency: scores.fluency,
+            grammar: scores.grammar,
+            pronunciation: scores.pronunciation,
+            composite: scores.composite,
+          ),
+        );
+        if (updated != null) authProvider.updateUserProfile(updated);
+      }
+    } catch (e) {
+      debugPrint('Failed to mark baseline complete: $e');
+    }
+    if (!ctx.mounted) return;
+    Navigator.of(ctx).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (r) => false,
+    );
+  }
+
+  List<String> _inferWeakAreas(SessionScores scores) {
+    final areas = <String>[];
+    if (scores.fluency < 60) areas.add('Fluency & Coherence');
+    if (scores.grammar < 60) areas.add('Grammar Range');
+    if (scores.pronunciation < 60) areas.add('Pronunciation');
+    return areas;
+  }
+
   @override
   Widget build(BuildContext context) {
     final scores = widget.session.scores;
@@ -81,6 +135,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
 
     final band = Formatters.formatIELTSBand(scores.estimatedIELTSBand);
     final composite = scores.composite.round();
+    final cefr = scores.cefrLevel;
     final transcript = widget.session.transcript ?? '';
     final feedback = widget.session.feedback ?? '';
 
@@ -168,16 +223,39 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                     height: 1.0,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _bandLabel(scores.estimatedIELTSBand),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
+                                const SizedBox(height: 8),
+                                // CEFR Badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(30),
+                                    border: Border.all(color: Colors.white38, width: 1.5),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        cefr,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 2,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        _cefrDescriptor(cefr),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 14),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                                   decoration: BoxDecoration(
@@ -245,7 +323,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           const SizedBox(height: 28),
                         ],
 
-                        // ── Transcript (collapsible) ─────────────────────
+                        // ── Transcript (collapsible + word highlighting) ─
                         if (transcript.isNotEmpty) ...[
                           GestureDetector(
                             onTap: () => setState(() => _showTranscript = !_showTranscript),
@@ -260,7 +338,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                   const SizedBox(width: 10),
                                   const Expanded(
                                     child: Text(
-                                      'View Transcript',
+                                      'Pronunciation Highlight',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
@@ -278,22 +356,36 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                               ),
                             ),
                           ),
-                          if (_showTranscript) ...[
-                            const SizedBox(height: 8),
-                            GlassCard(
-                              blur: 14,
-                              opacity: 0.15,
-                              padding: const EdgeInsets.all(18),
-                              child: Text(
-                                transcript,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  height: 1.7,
-                                ),
-                              ),
-                            ),
-                          ],
+                          if (_showTranscript)
+                            Builder(builder: (ctx) {
+                              // Use word-level results if available
+                              final words = (widget.session as dynamic).wordResults
+                                as List<WordInfo>? ?? [];
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  GlassCard(
+                                    blur: 14,
+                                    opacity: 0.15,
+                                    padding: const EdgeInsets.all(18),
+                                    child: words.isNotEmpty
+                                        ? WordHighlightWidget(words: words)
+                                        : Text(transcript,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              height: 1.7,
+                                            )),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: WordHighlightLegend(),
+                                  ),
+                                ],
+                              );
+                            }),
                           const SizedBox(height: 28),
                         ],
 
@@ -318,10 +410,13 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                             const SizedBox(width: 14),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                                  (r) => false,
-                                ),
+                                onPressed: () => widget.isBaseline
+                                    ? _markBaselineComplete(context)
+                                    : Navigator.of(context).pushAndRemoveUntil(
+                                        MaterialPageRoute(
+                                            builder: (_) => const HomeScreen()),
+                                        (r) => false,
+                                      ),
                                 icon: const Icon(Icons.home_rounded),
                                 label: Text(widget.isBaseline ? 'Continue' : 'Home'),
                                 style: ElevatedButton.styleFrom(
@@ -369,12 +464,15 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     return [const Color(0xFFef233c), const Color(0xFFb5179e)];
   }
 
-  String _bandLabel(double band) {
-    if (band >= 8.0) return 'Expert User';
-    if (band >= 7.0) return 'Good User';
-    if (band >= 6.0) return 'Competent User';
-    if (band >= 5.0) return 'Modest User';
-    return 'Keep Practising!';
+  String _cefrDescriptor(String cefr) {
+    switch (cefr) {
+      case 'C2': return 'Mastery';
+      case 'C1': return 'Advanced';
+      case 'B2': return 'Upper Intermediate';
+      case 'B1': return 'Intermediate';
+      case 'A2': return 'Elementary';
+      default:   return 'Beginner';
+    }
   }
 }
 

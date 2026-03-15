@@ -166,6 +166,7 @@ class Session {
       'pronunciation_score': scores?.pronunciation,
       'composite_score':     scores?.composite,
       'estimated_band':      scores?.estimatedIELTSBand,
+      'cefr_level':          scores?.cefrLevel,
       'feedback':            feedback,
       'synced':              synced ? 1 : 0,
     };
@@ -215,6 +216,7 @@ class SessionScores {
   final double pronunciation;
   final double composite;
   final double estimatedIELTSBand;
+  final String cefrLevel; // A1, A2, B1, B2, C1, C2
 
   SessionScores({
     required this.fluency,
@@ -222,6 +224,7 @@ class SessionScores {
     required this.pronunciation,
     required this.composite,
     required this.estimatedIELTSBand,
+    this.cefrLevel = 'A1',
   });
 
   factory SessionScores.fromJson(Map<String, dynamic> json) {
@@ -231,6 +234,7 @@ class SessionScores {
       pronunciation: (json['pronunciation'] as num).toDouble(),
       composite: (json['composite'] as num).toDouble(),
       estimatedIELTSBand: (json['estimatedIELTSBand'] as num? ?? 0).toDouble(),
+      cefrLevel: json['cefrLevel'] as String? ?? 'A1',
     );
   }
 
@@ -241,6 +245,7 @@ class SessionScores {
       'pronunciation': pronunciation,
       'composite': composite,
       'estimatedIELTSBand': estimatedIELTSBand,
+      'cefrLevel': cefrLevel,
     };
   }
 }

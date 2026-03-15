@@ -49,7 +49,7 @@ class BaselineAssessmentScreen extends StatelessWidget {
                   Text(
                     'Before you start practicing, we need to understand your current speaking level',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                     textAlign: TextAlign.center,
                   ),
@@ -124,7 +124,7 @@ class BaselineAssessmentScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -145,4 +145,5 @@ class BaselineAssessmentScreen extends StatelessWidget {
     );
   }
 }
+
 

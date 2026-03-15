@@ -111,10 +111,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             padding: const EdgeInsets.all(24),
             child: StatefulBuilder(
@@ -175,7 +175,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.25),
+                          backgroundColor: Colors.white.withValues(alpha: 0.25),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14)),
@@ -208,10 +208,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? Colors.white.withOpacity(0.35) : Colors.white.withOpacity(0.1),
+          color: selected ? Colors.white.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-              color: selected ? Colors.white : Colors.white.withOpacity(0.2)),
+              color: selected ? Colors.white : Colors.white.withValues(alpha: 0.2)),
         ),
         child: Text(label,
             style: TextStyle(
@@ -266,8 +266,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(colors: [
-                            Colors.white.withOpacity(0.2),
-                            Colors.white.withOpacity(0.1),
+                            Colors.white.withValues(alpha: 0.2),
+                            Colors.white.withValues(alpha: 0.1),
                           ]),
                         ),
                         child: SafeArea(
@@ -294,7 +294,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       .textTheme
                                       .bodyMedium
                                       ?.copyWith(
-                                          color: Colors.white.withOpacity(0.9)),
+                                          color: Colors.white.withValues(alpha: 0.9)),
                                 ),
                               ],
                             ),
@@ -314,22 +314,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       child: Row(
                         children: [
                           Icon(Icons.filter_list,
-                              color: Colors.white.withOpacity(0.7), size: 16),
+                              color: Colors.white.withValues(alpha: 0.7), size: 16),
                           const SizedBox(width: 6),
                           Text(
                             _filterLabel(),
                             style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 13),
                           ),
                           const SizedBox(width: 12),
                           Icon(Icons.sort,
-                              color: Colors.white.withOpacity(0.7), size: 16),
+                              color: Colors.white.withValues(alpha: 0.7), size: 16),
                           const SizedBox(width: 6),
                           Text(
                             _sortLabel(),
                             style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 13),
                           ),
                         ],
@@ -396,7 +396,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           children: [
             Icon(Icons.error_outline,
-                size: 64, color: Colors.white.withOpacity(0.8)),
+                size: 64, color: Colors.white.withValues(alpha: 0.8)),
             const SizedBox(height: 20),
             Text(
               'Error Loading Sessions',
@@ -411,7 +411,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: Colors.white.withOpacity(0.9)),
+                    ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
             GlassButton(
@@ -432,7 +432,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            Icon(Icons.history, size: 64, color: Colors.white.withOpacity(0.8)),
+            Icon(Icons.history, size: 64, color: Colors.white.withValues(alpha: 0.8)),
             const SizedBox(height: 20),
             Text(
               _sessions.isEmpty ? 'No Sessions Yet' : 'No Matches',
@@ -450,7 +450,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
-                  ?.copyWith(color: Colors.white.withOpacity(0.9)),
+                  ?.copyWith(color: Colors.white.withValues(alpha: 0.9)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -508,7 +508,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           color: Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.bold)),
-                  Text('Level ${speakingBand.toStringAsFixed(1)}',
+                  Text(session['cefr_level'] as String? ?? 'A1',
                       style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
                 ],
@@ -581,3 +581,4 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return DateFormat('MMM d').format(date);
   }
 }
+

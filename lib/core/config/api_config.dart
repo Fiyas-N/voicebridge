@@ -1,4 +1,4 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// API Configuration — only GROQ_API_KEY is required.
 /// Firebase reads its config from google-services.json automatically.

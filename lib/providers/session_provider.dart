@@ -6,6 +6,7 @@ import '../data/local/database_helper.dart';
 import '../services/audio_service.dart';
 import '../services/ai_pipeline.dart';
 import '../services/firebase_service.dart';
+import '../services/gamification_service.dart';
 import '../core/constants/app_constants.dart';
 
 class SessionProvider with ChangeNotifier {
@@ -75,7 +76,7 @@ class SessionProvider with ChangeNotifier {
     if (!_isRecording || _currentSession == null) return;
 
     try {
-      final path = await _audioService.stopRecording();
+      await _audioService.stopRecording();
       
       // Use the actual recorded duration from the timer
       final duration = _recordingDuration;
@@ -126,6 +127,7 @@ class SessionProvider with ChangeNotifier {
         pronunciation: analysis.pronunciationScore,
         composite: analysis.overallScore,
         estimatedIELTSBand: analysis.ieltsBand,
+        cefrLevel: analysis.cefrLevel,
       );
       
       _currentSession = _currentSession!.copyWith(
@@ -139,6 +141,22 @@ class SessionProvider with ChangeNotifier {
       
       // Save to local database first
       await _dbHelper.updateSession(_currentSession!.sessionId, _currentSession!.toDbMap());
+
+      // Award XP and update gamification stats
+      try {
+        final profile = await _dbHelper.getUserProfile(_currentSession!.userId);
+        if (profile != null) {
+          await GamificationService().completeSession(
+            userId: _currentSession!.userId,
+            compositeScore: analysis.overallScore,
+            cefrLevel: analysis.cefrLevel,
+            currentStreak: profile['current_streak'] as int? ?? 0,
+            totalSessions: profile['total_sessions'] as int? ?? 0,
+          );
+        }
+      } catch (e) {
+        debugPrint('Gamification update failed: $e');
+      }
       
       // Try to sync to Firebase
       try {

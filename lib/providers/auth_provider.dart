@@ -21,12 +21,13 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _init() async {
-    // Listen to auth state changes
+    // Single source of truth: Firebase auth state stream.
+    // This fires once on startup (with current user or null) and again
+    // whenever the user signs in or out.
     _firebaseService.authStateChanges.listen(
       (User? user) async {
         if (user != null) {
-          await Future.delayed(const Duration(milliseconds: 500));
-          await _loadUserProfile();
+          await _loadUserProfile(firebaseUser: user);
         } else {
           _currentUser = null;
           _isAuthenticated = false;
@@ -41,43 +42,66 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       },
     );
-
-    await _checkAuthStatus();
   }
 
-  Future<void> _checkAuthStatus() async {
+  /// Loads the user profile from Firebase DB.
+  /// If the DB read fails or returns null, we still mark the user as
+  /// authenticated (Firebase Auth succeeded) and build a minimal profile
+  /// from the FirebaseAuth user object so the app can function.
+  Future<void> _loadUserProfile({User? firebaseUser}) async {
     _isLoading = true;
     notifyListeners();
     try {
-      if (_firebaseService.isAuthenticated) {
-        await _loadUserProfile();
+      UserProfile? profile = await _firebaseService.getUserProfile();
+
+      if (profile == null) {
+        // Profile missing from DB — create a minimal one from FirebaseAuth data
+        final fbUser = firebaseUser ?? _firebaseService.currentFirebaseUser;
+        if (fbUser != null) {
+          profile = UserProfile(
+            userId: fbUser.uid,
+            email: fbUser.email ?? '',
+            displayName: fbUser.displayName ?? '',
+            createdAt: fbUser.metadata.creationTime ?? DateTime.now(),
+            lastActiveAt: DateTime.now(),
+          );
+          // Try to write the missing profile back to Firebase (best-effort)
+          try {
+            await _firebaseService.ensureUserProfile(profile);
+          } catch (e) {
+            debugPrint('Could not write missing profile to Firebase: $e');
+          }
+        }
       }
-    } catch (e) {
-      debugPrint('Auth check failed: $e');
-      _errorMessage = 'Failed to check authentication status';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
 
-  Future<void> _loadUserProfile() async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _currentUser = await _firebaseService.getUserProfile();
+      _currentUser = profile;
       _isAuthenticated = true;
       _errorMessage = null;
-      debugPrint('User profile loaded: ${_currentUser?.email}');
+      debugPrint('Auth ready — user: ${_currentUser?.email}');
     } catch (e) {
-      debugPrint('Failed to load user profile: $e');
-      _errorMessage = 'Failed to load user profile';
-      _isAuthenticated = false;
+      debugPrint('_loadUserProfile error: $e');
+      // Even if the DB read fails, the user IS authenticated via Firebase Auth.
+      // Build a minimal profile so they can use the app.
+      final fbUser = firebaseUser ?? _firebaseService.currentFirebaseUser;
+      if (fbUser != null) {
+        _currentUser = UserProfile(
+          userId: fbUser.uid,
+          email: fbUser.email ?? '',
+          displayName: fbUser.displayName ?? '',
+          createdAt: DateTime.now(),
+          lastActiveAt: DateTime.now(),
+        );
+        _isAuthenticated = true;
+      } else {
+        _isAuthenticated = false;
+      }
+      _errorMessage = null;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
+
 
   Future<void> signUp(String email, String password, String displayName) async {
     _isLoading = true;
@@ -89,13 +113,12 @@ class AuthProvider with ChangeNotifier {
         password: password,
         displayName: displayName,
       );
-      await _loadUserProfile();
+      // authStateChanges listener will fire and call _loadUserProfile automatically.
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      rethrow;
-    } finally {
       _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+      rethrow;
     }
   }
 
@@ -105,13 +128,12 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
     try {
       await _firebaseService.signIn(email: email, password: password);
-      await _loadUserProfile();
+      // authStateChanges listener will fire and call _loadUserProfile automatically.
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      rethrow;
-    } finally {
       _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
+      rethrow;
     }
   }
 
@@ -183,6 +205,18 @@ class AuthProvider with ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Sends a password reset email without requiring the user to be logged in.
+  /// Used by the Forgot Password button on the login screen.
+  Future<void> sendPasswordResetForEmail(String email) async {
+    try {
+      await _firebaseService.sendPasswordResetEmail(email);
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      rethrow;
+    }
+  }
+
 
   Future<void> deleteAccount(String currentPassword) async {
     _isLoading = true;

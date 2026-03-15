@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -46,7 +46,13 @@ class DatabaseHelper {
         display_name $textType,
         baseline_completed INTEGER DEFAULT 0,
         current_streak INTEGER DEFAULT 0,
+        longest_streak INTEGER DEFAULT 0,
         total_sessions INTEGER DEFAULT 0,
+        xp INTEGER DEFAULT 0,
+        daily_goal INTEGER DEFAULT 3,
+        daily_sessions_today INTEGER DEFAULT 0,
+        last_session_date TEXT,
+        achievements_json TEXT,
         last_synced_at INTEGER,
         data_json TEXT
       )
@@ -72,6 +78,7 @@ class DatabaseHelper {
         pronunciation_score $realType,
         composite_score $realType,
         estimated_band $realType,
+        cefr_level TEXT,
         feedback TEXT,
         synced INTEGER DEFAULT 0,
         last_synced_at INTEGER
@@ -82,6 +89,19 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_sessions_user_id ON sessions(user_id)');
     await db.execute('CREATE INDEX idx_sessions_status ON sessions(status)');
     await db.execute('CREATE INDEX idx_sessions_created_at ON sessions(created_at DESC)');
+
+    // Lesson progress table
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS lesson_progress (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        lesson_id TEXT NOT NULL,
+        completed_at INTEGER,
+        score REAL,
+        UNIQUE(user_id, lesson_id)
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_lesson_progress_user ON lesson_progress(user_id)');
   }
 
   // User Profile Operations

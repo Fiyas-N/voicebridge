@@ -26,7 +26,6 @@ class RecordingScreen extends StatefulWidget {
 
 class _RecordingScreenState extends State<RecordingScreen>
     with TickerProviderStateMixin {
-  bool _hasStarted = false;
   bool _showReview = false;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -447,7 +446,6 @@ class _RecordingScreenState extends State<RecordingScreen>
                         onPressed: () {
                           sessionProvider.clearCurrentSession();
                           setState(() {
-                            _hasStarted = false;
                             _showReview = false;
                           });
                         },
@@ -501,7 +499,6 @@ class _RecordingScreenState extends State<RecordingScreen>
         widget.userId,
         isBaseline: widget.isBaseline,
       );
-      setState(() => _hasStarted = true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -525,7 +522,6 @@ class _RecordingScreenState extends State<RecordingScreen>
         final sessionProvider =
             Provider.of<SessionProvider>(context, listen: false);
         sessionProvider.clearCurrentSession();
-        setState(() => _hasStarted = false);
       }
     }
   }

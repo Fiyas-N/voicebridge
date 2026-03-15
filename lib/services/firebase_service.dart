@@ -1,20 +1,22 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import '../data/models/user_profile.dart';
 
 /// Firebase Service
-/// Handles all Firebase operations including authentication and database
+/// Handles all Firebase operations — authentication via FirebaseAuth,
+/// structured data via Cloud Firestore.
 class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final DatabaseReference _db = FirebaseDatabase.instance.ref();
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  // ── Auth ────────────────────────────────────────────────────────────────────
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   bool get isAuthenticated => _auth.currentUser != null;
   String? get currentUserId => _auth.currentUser?.uid;
+  User? get currentFirebaseUser => _auth.currentUser;
 
   Future<void> signUp({
     required String email,
@@ -28,18 +30,19 @@ class FirebaseService {
       );
       await credential.user?.updateDisplayName(displayName);
 
-      // Write user profile to Realtime Database
-      await _db.child('users/${credential.user!.uid}').set({
-        'userId': credential.user!.uid,
+      // Write user profile to Firestore
+      final uid = credential.user!.uid;
+      await _db.collection('users').doc(uid).set({
+        'userId': uid,
         'email': email,
         'displayName': displayName,
-        'createdAt': DateTime.now().millisecondsSinceEpoch,
-        'lastActiveAt': DateTime.now().millisecondsSinceEpoch,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastActiveAt': FieldValue.serverTimestamp(),
         'baselineCompleted': false,
         'currentStreak': 0,
         'longestStreak': 0,
         'totalSessions': 0,
-        'weakAreas': [],
+        'weakAreas': <String>[],
       });
     } on FirebaseAuthException catch (e) {
       throw Exception(_handleAuthException(e));
@@ -73,9 +76,10 @@ class FirebaseService {
     final uid = currentUserId;
     if (uid == null) throw Exception('Not authenticated');
     await _auth.currentUser?.updateDisplayName(displayName);
-    await _db.child('users/$uid/displayName').set(displayName);
-    await _db.child('users/$uid/lastActiveAt')
-        .set(DateTime.now().millisecondsSinceEpoch);
+    await _db.collection('users').doc(uid).update({
+      'displayName': displayName,
+      'lastActiveAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<void> changePassword({
@@ -85,7 +89,6 @@ class FirebaseService {
     final user = _auth.currentUser;
     if (user == null || user.email == null) throw Exception('Not authenticated');
 
-    // Re-authenticate first
     final credential = EmailAuthProvider.credential(
       email: user.email!,
       password: currentPassword,
@@ -108,53 +111,65 @@ class FirebaseService {
     );
     try {
       await user.reauthenticateWithCredential(credential);
-      await _db.child('users/${user.uid}').remove();
+      // Delete Firestore data first, then the auth account
+      await _db.collection('users').doc(user.uid).delete();
       await user.delete();
     } on FirebaseAuthException catch (e) {
       throw Exception(_handleAuthException(e));
     }
   }
 
-  // ── User Profile ──────────────────────────────────────────────────────────
+  // ── User Profile ─────────────────────────────────────────────────────────────
 
   Future<UserProfile?> getUserProfile() async {
     final uid = currentUserId;
     if (uid == null) return null;
 
     try {
-      final snapshot = await _db.child('users/$uid').get();
-      if (!snapshot.exists || snapshot.value == null) return null;
+      final doc = await _db.collection('users').doc(uid).get();
+      if (!doc.exists || doc.data() == null) return null;
 
-      // Firebase returns dynamic types — use safe casting
-      final raw = Map<String, dynamic>.from(snapshot.value as Map);
+      final raw = doc.data()!;
 
-      // Safely read weakAreas — Firebase stores lists as maps with int keys
+      // Firestore Timestamps → DateTime
+      DateTime tsToDate(String key) {
+        final val = raw[key];
+        if (val is Timestamp) return val.toDate();
+        if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+        return DateTime.now();
+      }
+
+      // weakAreas is stored as a Firestore array of strings
       List<String> weakAreas = [];
-      if (raw['weakAreas'] != null) {
-        final wa = raw['weakAreas'];
-        if (wa is List) {
-          weakAreas = wa.map((e) => e.toString()).toList();
-        } else if (wa is Map) {
-          weakAreas = wa.values.map((e) => e.toString()).toList();
-        }
+      if (raw['weakAreas'] is List) {
+        weakAreas = List<String>.from(
+            (raw['weakAreas'] as List).map((e) => e.toString()));
+      }
+
+      // baselineScores sub-map (optional)
+      BaselineScores? baselineScores;
+      if (raw['baselineScores'] is Map) {
+        final bs = raw['baselineScores'] as Map<String, dynamic>;
+        baselineScores = BaselineScores(
+          fluency: (bs['fluency'] as num?)?.toDouble() ?? 0,
+          grammar: (bs['grammar'] as num?)?.toDouble() ?? 0,
+          pronunciation: (bs['pronunciation'] as num?)?.toDouble() ?? 0,
+          composite: (bs['composite'] as num?)?.toDouble() ?? 0,
+        );
       }
 
       return UserProfile(
-        userId:       raw['userId']?.toString() ?? uid,
-        email:        raw['email']?.toString() ?? '',
-        displayName:  raw['displayName']?.toString() ?? '',
-        createdAt:    raw['createdAt'] != null
-            ? DateTime.fromMillisecondsSinceEpoch((raw['createdAt'] as num).toInt())
-            : DateTime.now(),
-        lastActiveAt: raw['lastActiveAt'] != null
-            ? DateTime.fromMillisecondsSinceEpoch((raw['lastActiveAt'] as num).toInt())
-            : DateTime.now(),
-        baselineCompleted: raw['baselineCompleted'] == true ||
-            raw['baselineCompleted'] == 1,
+        userId: raw['userId']?.toString() ?? uid,
+        email: raw['email']?.toString() ?? '',
+        displayName: raw['displayName']?.toString() ?? '',
+        createdAt: tsToDate('createdAt'),
+        lastActiveAt: tsToDate('lastActiveAt'),
+        baselineCompleted: raw['baselineCompleted'] == true,
         currentStreak: (raw['currentStreak'] as num?)?.toInt() ?? 0,
         longestStreak: (raw['longestStreak'] as num?)?.toInt() ?? 0,
         totalSessions: (raw['totalSessions'] as num?)?.toInt() ?? 0,
-        weakAreas:    weakAreas,
+        baselineScores: baselineScores,
+        weakAreas: weakAreas,
       );
     } catch (e) {
       debugPrint('getUserProfile error: $e');
@@ -165,38 +180,95 @@ class FirebaseService {
   Future<void> updateUserProfile(UserProfile profile) async {
     final uid = currentUserId;
     if (uid == null) throw Exception('Not authenticated');
-    await _db.child('users/$uid').update(profile.toJson());
+    await _db.collection('users').doc(uid).update({
+      ...profile.toJson(),
+      'lastActiveAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Writes a minimal profile to Firestore if none exists yet.
+  /// Uses set() with merge: false only when the document doesn't exist.
+  Future<void> ensureUserProfile(UserProfile profile) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+
+    final docRef = _db.collection('users').doc(uid);
+    final snap = await docRef.get();
+    if (!snap.exists) {
+      await docRef.set({
+        'userId': profile.userId,
+        'email': profile.email,
+        'displayName': profile.displayName,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastActiveAt': FieldValue.serverTimestamp(),
+        'baselineCompleted': false,
+        'currentStreak': 0,
+        'longestStreak': 0,
+        'totalSessions': 0,
+        'weakAreas': <String>[],
+      });
+    }
+  }
+
+  /// Marks the baseline assessment as completed in Firestore.
+  /// Writes the score breakdown and inferred weak areas atomically.
+  Future<void> markBaselineCompleted({
+    required String userId,
+    required BaselineScores scores,
+    required List<String> weakAreas,
+  }) async {
+    await _db.collection('users').doc(userId).update({
+      'baselineCompleted': true,
+      'baselineCompletedAt': FieldValue.serverTimestamp(),
+      'lastActiveAt': FieldValue.serverTimestamp(),
+      'baselineScores': {
+        'fluency': scores.fluency,
+        'grammar': scores.grammar,
+        'pronunciation': scores.pronunciation,
+        'composite': scores.composite,
+      },
+      'weakAreas': weakAreas,
+    });
   }
 
   // ── Sessions ──────────────────────────────────────────────────────────────
 
+  /// Saves session summary metrics to Firestore.
+  /// Full audio + transcript stays local (privacy-first).
   Future<void> saveSessionData({
     required String userId,
     required String sessionId,
     required Map<String, dynamic> sessionData,
   }) async {
     try {
-      await _db.child('sessions/$userId/$sessionId').set(sessionData);
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('sessions')
+          .doc(sessionId)
+          .set({
+        ...sessionData,
+        'savedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
       throw Exception('Failed to save session: $e');
     }
   }
 
+  /// Fetches session summaries from Firestore, ordered newest-first.
   Future<List<Map<String, dynamic>>> getUserSessionsFromFirebase(
       String userId) async {
     try {
-      final snapshot = await _db
-          .child('sessions/$userId')
-          .orderByChild('createdAt')
+      final query = await _db
+          .collection('users')
+          .doc(userId)
+          .collection('sessions')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
           .get();
 
-      if (!snapshot.exists || snapshot.value == null) return [];
-
-      final data = Map<String, dynamic>.from(snapshot.value as Map);
-      return data.values
-          .map((v) => Map<String, dynamic>.from(v as Map))
-          .toList()
-          .reversed
+      return query.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
           .toList();
     } catch (e) {
       debugPrint('getUserSessions error: $e');
@@ -204,14 +276,15 @@ class FirebaseService {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
         return 'No account found with this email.';
       case 'wrong-password':
-        return 'Incorrect password.';
+      case 'invalid-credential':
+        return 'Incorrect email or password.';
       case 'email-already-in-use':
         return 'An account with this email already exists.';
       case 'weak-password':
