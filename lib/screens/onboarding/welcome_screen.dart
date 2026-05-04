@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/common/glass_card.dart';
@@ -57,22 +56,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Liquid Glass Background
-          LiquidGlassContainer(
-            height: MediaQuery.of(context).size.height,
-            colors: const [
-              Color(0xFFe0e0e0), // Light Gray
-              Color(0xFF9e9e9e), // Silver
-              Color(0xFF616161), // Charcoal
-              Color(0xFF212121), // Dark Gray
-            ],
-            child: const SizedBox.expand(),
-          ),
-          
-          // Content
-          SafeArea(
+      backgroundColor: AppColors.backgroundOffWhite,
+      body: SafeArea(
             child: SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -83,37 +68,37 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   
                   // App Logo/Icon
                   GlassCard(
-                    blur: 15,
-                    opacity: 0.25,
                     padding: const EdgeInsets.all(32),
                     borderRadius: BorderRadius.circular(40),
                     child: const Icon(
                       Icons.mic,
                       size: 80,
-                      color: Colors.white,
+                      color: AppColors.primary,
                     ),
                   ),
                   
                   const SizedBox(height: 40),
                   
                   // Title
-                  Text(
+                  const Text(
                     'VoiceBridge',
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 48,
-                        ),
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 48,
+                    ),
                   ),
                   
                   const SizedBox(height: 16),
                   
                   // Subtitle
-                  Text(
+                  const Text(
                     'Master English Speaking\nwith AI-Powered Feedback',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
+                    style: TextStyle(
+                      color: AppColors.textMedium,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   
@@ -128,6 +113,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                           child: _buildFeatureCard(
                             Icons.mic_none,
                             'Practice\nSpeaking',
+                            AppColors.primary,
                           ),
                         ),
                       ),
@@ -138,6 +124,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                           child: _buildFeatureCard(
                             Icons.analytics_outlined,
                             'Get AI\nFeedback',
+                            AppColors.secondary,
                           ),
                         ),
                       ),
@@ -148,6 +135,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                           child: _buildFeatureCard(
                             Icons.trending_up,
                             'Track\nProgress',
+                            const Color(0xFFFF9600), // Duolingo orange
                           ),
                         ),
                       ),
@@ -157,42 +145,51 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   const SizedBox(height: 60),
                   
                   // Buttons
-                  GlassButton(
-                    blur: 10,
-                    opacity: 0.2,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
+                  ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const SignupScreen()),
                       );
                     },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
                     child: const Text(
                       'Get Started',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
                   ),
                   
                   const SizedBox(height: 16),
                   
-                  GlassButton(
-                    blur: 10,
-                    opacity: 0.2,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
+                  OutlinedButton(
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
                       );
                     },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textDark,
+                      minimumSize: const Size(double.infinity, 56),
+                      side: const BorderSide(color: AppColors.borderMedium, width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                     child: const Text(
                       'I Already Have an Account',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -203,32 +200,28 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
               ),
             ),
           ),
-        ],
-      ),
     );
   }
 
-  Widget _buildFeatureCard(IconData icon, String label) {
+  Widget _buildFeatureCard(IconData icon, String label, Color color) {
     return GlassCard(
-      blur: 15,
-      opacity: 0.2,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(12),
+      borderRadius: BorderRadius.circular(16),
       child: Column(
         children: [
-          Icon(icon, color: Colors.white, size: 32),
-          const SizedBox(height: 12),
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
           Text(
             label,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w600,
+              color: AppColors.textDark,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 }
-

@@ -136,7 +136,7 @@ class _LessonsScreenState extends State<LessonsScreen>
                       decoration: BoxDecoration(
                         color: _tabController.index ==
                                 LessonLibrary.levels.indexOf(l)
-                            ? _levelColors[l]!.withOpacity(0.15)
+                            ? _levelColors[l]!.withValues(alpha: 0.15)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
                         border: _tabController.index ==
@@ -188,7 +188,7 @@ class _LessonsScreenState extends State<LessonsScreen>
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: color, width: 2),
                   ),
@@ -253,7 +253,7 @@ class _LessonsScreenState extends State<LessonsScreen>
                 height: 56,
                 decoration: BoxDecoration(
                   color: done
-                      ? color.withOpacity(0.15)
+                      ? color.withValues(alpha: 0.15)
                       : AppColors.backgroundOffWhite,
                   borderRadius: BorderRadius.circular(16),
                   border: done
@@ -299,7 +299,7 @@ class _LessonsScreenState extends State<LessonsScreen>
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(

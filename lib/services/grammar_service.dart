@@ -1,7 +1,7 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
+import 'package:language_tool/language_tool.dart';
 
+/// Grammar error model — maps from both LanguageTool and heuristic sources.
 class GrammarError {
   final String type;
   final String original;
@@ -48,106 +48,163 @@ class GrammarResult {
   });
 }
 
+/// Grammar Analysis Service
+///
+/// Strategy (fastest first, graceful degradation):
+///   1. LanguageTool API  — instant, no LLM needed. Requires internet.
+///   2. Heuristic fallback — word-count + known-error rules. Always offline.
+///
+/// Gemma 3 is NO LONGER used for grammar — it is now reserved exclusively
+/// for Step 6 (personalised coaching feedback), halving LLM pressure.
 class GrammarAnalysisService {
-  static const String _groqApiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  
-  /// Analyze grammar using Groq's free Llama 3.1 70B model
-  Future<GrammarResult> analyzeGrammar(String text) async {
-    try {
-      final apiKey = dotenv.env['GROQ_API_KEY'];
-      if (apiKey == null || apiKey.isEmpty) {
-        throw Exception('GROQ_API_KEY not found in environment variables');
-      }
+  LanguageTool? _tool;
 
-      final response = await http.post(
-        Uri.parse(_groqApiUrl),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': 'llama-3.3-70b-versatile',
-          'messages': [
-            {
-              'role': 'system',
-              'content': '''You are an expert English grammar checker for speaking assessment.
-Analyze the text and return a JSON response with:
-{
-  "score": 0-100,
-  "corrected_text": "grammatically correct version",
-  "errors": [
-    {
-      "type": "verb_tense|subject_verb|article|preposition|word_choice|other",
-      "original": "incorrect phrase",
-      "correction": "correct phrase",
-      "explanation": "brief explanation"
-    }
-  ],
-  "summary": "brief overall assessment"
-}
-
-Be strict but fair. Score based on:
-- Verb tense accuracy (30%)
-- Subject-verb agreement (25%)
-- Article usage (15%)
-- Preposition usage (15%)
-- Word choice (15%)'''
-            },
-            {
-              'role': 'user',
-              'content': 'Analyze this text:\n\n$text'
-            }
-          ],
-          'temperature': 0.3,
-          'max_tokens': 1000,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'];
-        return _parseGrammarResponse(content);
-      } else {
-        throw Exception('Grammar analysis failed: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Grammar analysis error: $e');
-    }
+  LanguageTool get _langTool {
+    _tool ??= LanguageTool();
+    return _tool!;
   }
-  
-  GrammarResult _parseGrammarResponse(String content) {
-    try {
-      // Extract JSON from response (handle markdown code blocks)
-      String jsonStr = content;
-      if (content.contains('```json')) {
-        jsonStr = content.split('```json')[1].split('```')[0].trim();
-      } else if (content.contains('```')) {
-        jsonStr = content.split('```')[1].split('```')[0].trim();
-      }
-      
-      final data = jsonDecode(jsonStr);
-      
-      final errors = <GrammarError>[];
-      if (data['errors'] != null) {
-        for (var errorData in data['errors']) {
-          errors.add(GrammarError.fromJson(errorData));
-        }
-      }
-      
+
+  /// Analyse grammar. Returns fast if internet is available (LanguageTool),
+  /// or falls back to heuristics if offline.
+  Future<GrammarResult> analyzeGrammar(String text) async {
+    if (text.trim().isEmpty) {
       return GrammarResult(
-        score: (data['score'] ?? 75).toDouble(),
-        correctedText: data['corrected_text'] ?? '',
-        errors: errors,
-        summary: data['summary'] ?? 'Grammar analysis complete',
-      );
-    } catch (e) {
-      // Fallback if JSON parsing fails
-      return GrammarResult(
-        score: 70.0,
+        score: 0,
         correctedText: '',
         errors: [],
-        summary: 'Grammar analysis completed with basic scoring',
+        summary: 'No text to analyse.',
       );
     }
+
+    // ── Attempt 1: LanguageTool API (fast, accurate, no LLM) ──────────────
+    try {
+      debugPrint('Grammar: checking via LanguageTool API…');
+      final mistakes = await _langTool.check(text);
+      debugPrint('Grammar: LanguageTool returned ${mistakes.length} issues.');
+      return _fromLanguageTool(text, mistakes);
+    } catch (e) {
+      debugPrint('Grammar: LanguageTool unavailable ($e) — using heuristics.');
+    }
+
+    // ── Attempt 2: Offline heuristic fallback ────────────────────────────
+    return _offlineFallback(text);
+  }
+
+  // ---------------------------------------------------------------------------
+  // LanguageTool result → GrammarResult
+  // ---------------------------------------------------------------------------
+
+  GrammarResult _fromLanguageTool(String text, List<WritingMistake> mistakes) {
+    // Convert LanguageTool mistakes to GrammarError list
+    final errors = <GrammarError>[];
+    String corrected = text;
+    int offset = 0; // track cumulative index drift from replacements
+
+    for (final m in mistakes) {
+      final original = text.substring(
+        m.offset.clamp(0, text.length),
+        (m.offset + m.length).clamp(0, text.length),
+      );
+      final suggestion = m.replacements.isNotEmpty ? m.replacements.first : original;
+
+      errors.add(GrammarError(
+        type: _categoryLabel(m.issueType),
+        original: original,
+        correction: suggestion,
+        explanation: m.message,
+      ));
+
+      // Apply correction to produce corrected text
+      final start = (m.offset + offset).clamp(0, corrected.length);
+      final end = (m.offset + m.length + offset).clamp(0, corrected.length);
+      corrected = corrected.replaceRange(start, end, suggestion);
+      offset += suggestion.length - m.length;
+    }
+
+    // Score: start at 100, deduct per error weighted by severity
+    double score = 100.0;
+    for (final m in mistakes) {
+      switch (_categoryLabel(m.issueType)) {
+        case 'Grammar':
+          score -= 8;
+          break;
+        case 'Spelling':
+          score -= 5;
+          break;
+        case 'Punctuation':
+          score -= 3;
+          break;
+        default:
+          score -= 4;
+      }
+    }
+    score = score.clamp(30.0, 100.0);
+
+    final summary = mistakes.isEmpty
+        ? 'No grammar issues found — great writing!'
+        : '${mistakes.length} issue${mistakes.length == 1 ? '' : 's'} found.';
+
+    return GrammarResult(
+      score: score,
+      correctedText: corrected,
+      errors: errors,
+      summary: summary,
+    );
+  }
+
+  String _categoryLabel(String? issueType) {
+    if (issueType == null) return 'Grammar';
+    final t = issueType.toLowerCase();
+    if (t.contains('spell')) return 'Spelling';
+    if (t.contains('punct')) return 'Punctuation';
+    if (t.contains('style')) return 'Style';
+    return 'Grammar';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Offline heuristic fallback
+  // ---------------------------------------------------------------------------
+
+  /// Simple rule-based fallback used when LanguageTool API is unreachable.
+  GrammarResult _offlineFallback(String text) {
+    final words = text.trim().split(RegExp(r'\s+'));
+    double score = words.length > 3 ? 72.0 : 65.0;
+    final errors = <GrammarError>[];
+    final lower = text.toLowerCase();
+
+    // Map of known common spoken errors → correction + explanation
+    const knownErrors = <String, (String, String, String)>{
+      'i am going to went': ('tense', 'going to go', 'Mixed "going to" with past tense "went"'),
+      "he don't": ('agreement', "he doesn't", 'Third-person singular requires "doesn\'t"'),
+      "she don't": ('agreement', "she doesn't", 'Third-person singular requires "doesn\'t"'),
+      'they was': ('agreement', 'they were', '"They" requires "were", not "was"'),
+      'we was': ('agreement', 'we were', '"We" requires "were", not "was"'),
+      'you is': ('agreement', 'you are', '"You" requires "are", not "is"'),
+      'i seen': ('tense', 'I saw / I have seen', 'Missing auxiliary "have" or wrong tense'),
+      'i done': ('tense', 'I did / I have done', 'Missing auxiliary "have" or wrong tense'),
+      'me and him': ('pronoun', 'he and I', 'Use subject pronouns in subject position'),
+    };
+
+    for (final entry in knownErrors.entries) {
+      if (lower.contains(entry.key)) {
+        final val = entry.value;
+        score -= 8;
+        errors.add(GrammarError(
+          type: val.$1,
+          original: entry.key,
+          correction: val.$2,
+          explanation: val.$3,
+        ));
+      }
+    }
+
+    return GrammarResult(
+      score: score.clamp(40.0, 90.0),
+      correctedText: '',
+      errors: errors,
+      summary: errors.isEmpty
+          ? 'Basic offline assessment — no obvious errors detected.'
+          : '${errors.length} common error${errors.length == 1 ? '' : 's'} detected.',
+    );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import './auth_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../data/models/session.dart';
 import '../data/models/prompt.dart';
@@ -7,6 +8,8 @@ import '../services/audio_service.dart';
 import '../services/ai_pipeline.dart';
 import '../services/firebase_service.dart';
 import '../services/gamification_service.dart';
+import '../services/local_llm_service.dart';
+import '../services/local_stt_service.dart';
 import '../core/constants/app_constants.dart';
 
 class SessionProvider with ChangeNotifier {
@@ -105,7 +108,7 @@ class SessionProvider with ChangeNotifier {
     }
   }
 
-  Future<void> submitRecording() async {
+  Future<void> submitRecording(AuthProvider authProvider) async {
     if (_currentSession == null) return;
 
     _isProcessing = true;
@@ -136,6 +139,7 @@ class SessionProvider with ChangeNotifier {
         scores: scores,
         transcript: analysis.transcription,
         feedback: analysis.feedback,
+        wordResults: analysis.wordResults,
         synced: false, // Mark as not synced initially
       );
       
@@ -153,6 +157,19 @@ class SessionProvider with ChangeNotifier {
             currentStreak: profile['current_streak'] as int? ?? 0,
             totalSessions: profile['total_sessions'] as int? ?? 0,
           );
+          
+          // Sync updated local profile to Firestore
+          final updatedLocal = await _dbHelper.getUserProfile(_currentSession!.userId);
+          if (updatedLocal != null && authProvider.currentUser != null) {
+            final updatedCloud = authProvider.currentUser!.copyWith(
+              currentStreak: updatedLocal['current_streak'] as int? ?? 0,
+              longestStreak: updatedLocal['longest_streak'] as int? ?? 0,
+              totalSessions: updatedLocal['total_sessions'] as int? ?? 0,
+              xp: updatedLocal['xp'] as int? ?? 0,
+              dailyGoal: updatedLocal['daily_goal'] as int? ?? 3,
+            );
+            await _firebaseService.updateUserProfile(updatedCloud);
+          }
         }
       } catch (e) {
         debugPrint('Gamification update failed: $e');
@@ -168,7 +185,9 @@ class SessionProvider with ChangeNotifier {
       
       _isProcessing = false;
       notifyListeners();
-      
+
+      // Refresh AuthProvider to update Home Screen stats
+      await authProvider.refreshUserProfile();
     } catch (e) {
       _isProcessing = false;
       notifyListeners();
@@ -226,7 +245,97 @@ class SessionProvider with ChangeNotifier {
     _isRecording = false;
     _isProcessing = false;
     _recordingDuration = 0.0;
+    // Free LLM RAM whenever the user navigates away from a session
+    LocalLlmService().unloadModel();
     notifyListeners();
+  }
+
+  /// Saves a pre-analyzed session (like from Live Conversation)
+  Future<void> saveCompletedSession({
+    required AuthProvider authProvider,
+    required String userId,
+    required String type,
+    required String? promptText,
+    required double duration,
+    required double compositeScore,
+    required String cefrLevel,
+    required String feedback,
+    required String transcript,
+    List<String> grammarCorrections = const [],
+    List<String> improvementTips = const [],
+    List<String> advancedVocabulary = const [],
+    List<WordInfo> wordResults = const [],
+  }) async {
+    final sessionId = const Uuid().v4();
+    
+    final scores = SessionScores(
+      fluency: compositeScore * 0.9, 
+      grammar: compositeScore, 
+      pronunciation: compositeScore * 0.95,
+      composite: compositeScore,
+      estimatedIELTSBand: (compositeScore / 10).clamp(0, 9),
+      cefrLevel: cefrLevel,
+    );
+
+    final session = Session(
+      sessionId: sessionId,
+      userId: userId,
+      type: type,
+      createdAt: DateTime.now().subtract(Duration(seconds: duration.toInt())),
+      completedAt: DateTime.now(),
+      status: SessionStatus.completed,
+      promptText: promptText,
+      audioDuration: duration,
+      transcript: transcript,
+      scores: scores,
+      feedback: feedback,
+      grammarCorrections: grammarCorrections,
+      improvementTips: improvementTips,
+      advancedVocabulary: advancedVocabulary,
+      wordResults: wordResults,
+      synced: false,
+    );
+
+    await _dbHelper.insertSession(session.toDbMap());
+
+    // Award XP
+    try {
+      final profile = await _dbHelper.getUserProfile(userId);
+      if (profile != null) {
+        await GamificationService().completeSession(
+          userId: userId,
+          compositeScore: compositeScore,
+          cefrLevel: cefrLevel,
+          currentStreak: profile['current_streak'] as int? ?? 0,
+          totalSessions: profile['total_sessions'] as int? ?? 0,
+        );
+
+        // Sync updated local profile to Firestore
+        final updatedLocal = await _dbHelper.getUserProfile(userId);
+        if (updatedLocal != null && authProvider.currentUser != null) {
+          final updatedCloud = authProvider.currentUser!.copyWith(
+            currentStreak: updatedLocal['current_streak'] as int? ?? 0,
+            longestStreak: updatedLocal['longest_streak'] as int? ?? 0,
+            totalSessions: updatedLocal['total_sessions'] as int? ?? 0,
+            xp: updatedLocal['xp'] as int? ?? 0,
+            dailyGoal: updatedLocal['daily_goal'] as int? ?? 3,
+          );
+          await _firebaseService.updateUserProfile(updatedCloud);
+        }
+      }
+    } catch (e) {
+      debugPrint('Gamification update failed: $e');
+    }
+
+    // Try sync
+    try {
+      _currentSession = session;
+      await _syncToFirebase();
+      _currentSession = null;
+    } catch (_) {}
+
+    // Refresh AuthProvider to update Home Screen stats
+    await authProvider.refreshUserProfile();
   }
 
   Future<List<Session>> getUserSessions(String userId) async {

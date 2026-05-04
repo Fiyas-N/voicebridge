@@ -1,8 +1,10 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
 import '../../core/theme/app_theme.dart';
+import '../../services/local_stt_service.dart';
 import '../../widgets/common/glass_card.dart';
+import '../../widgets/common/word_highlight_widget.dart';
 
 class SessionDetailScreen extends StatelessWidget {
   final Map<String, dynamic> session;
@@ -28,20 +30,34 @@ class SessionDetailScreen extends StatelessWidget {
     final promptText   = session['prompt_text'] as String? ?? '';
     final type         = session['type']        as String? ?? 'practice';
 
+    // Parse granular feedback
+    List<String> grammarCorrections = [];
+    List<String> improvementTips = [];
+    List<String> advancedVocabulary = [];
+    List<WordInfo> wordResults = [];
+
+    try {
+      if (session['grammar_corrections'] != null) {
+        grammarCorrections = (jsonDecode(session['grammar_corrections'] as String) as List).cast<String>();
+      }
+      if (session['improvement_tips'] != null) {
+        improvementTips = (jsonDecode(session['improvement_tips'] as String) as List).cast<String>();
+      }
+      if (session['advanced_vocabulary'] != null) {
+        advancedVocabulary = (jsonDecode(session['advanced_vocabulary'] as String) as List).cast<String>();
+      }
+      if (session['word_results'] != null) {
+        wordResults = (jsonDecode(session['word_results'] as String) as List)
+            .map((w) => WordInfo.fromJson(w as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing granular feedback: $e');
+    }
+
     return Scaffold(
-      body: Stack(
-        children: [
-          LiquidGlassContainer(
-            height: MediaQuery.of(context).size.height,
-            colors: const [
-              Color(0xFFe0e0e0),
-              Color(0xFF9e9e9e),
-              Color(0xFFe0e0e0),
-              Color(0xFF616161),
-            ],
-            child: const SizedBox.expand(),
-          ),
-          SafeArea(
+      backgroundColor: AppColors.backgroundOffWhite,
+      body: SafeArea(
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
@@ -50,48 +66,44 @@ class SessionDetailScreen extends StatelessWidget {
                   expandedHeight: 120,
                   floating: false,
                   pinned: true,
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: AppColors.surface,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  flexibleSpace: ClipRRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                        ),
-                        child: SafeArea(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 64, vertical: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  type == 'baseline'
-                                      ? 'Baseline Session'
-                                      : 'Practice Session',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .displaySmall
-                                      ?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                                Text(
-                                  DateFormat('MMMM d, yyyy · h:mm a')
-                                      .format(createdAt),
-                                  style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.8),
-                                      fontSize: 13),
-                                ),
-                              ],
-                            ),
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      color: AppColors.surface,
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                type == 'baseline'
+                                    ? 'Baseline Session'
+                                    : 'Practice Session',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .displaySmall
+                                    ?.copyWith(
+                                      color: AppColors.textDark,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 24,
+                                    ),
+                              ),
+                              Text(
+                                DateFormat('MMMM d, yyyy · h:mm a')
+                                    .format(createdAt),
+                                style: const TextStyle(
+                                    color: AppColors.textMedium,
+                                    fontSize: 13),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -107,8 +119,6 @@ class SessionDetailScreen extends StatelessWidget {
                       children: [
                         // ── Score Summary ──────────────────────────────────
                         GlassCard(
-                          blur: 15,
-                          opacity: 0.25,
                           padding: const EdgeInsets.all(24),
                           child: Column(
                             children: [
@@ -117,27 +127,27 @@ class SessionDetailScreen extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   _bigScore(context, overall.toInt().toString(),
-                                      'Overall'),
+                                      'Overall', AppColors.primary),
                                   const SizedBox(width: 32),
                                   _bigScore(context, band.toStringAsFixed(1),
-                                      'Band'),
+                                      'Band', AppColors.secondary),
                                   const SizedBox(width: 32),
                                   _bigScore(context,
                                     session['cefr_level'] as String? ?? 'A1',
-                                    'CEFR Level'),
+                                    'CEFR', AppColors.accentPurple),
                                 ],
                               ),
                               const SizedBox(height: 24),
                               // Category bars
-                              _scorebar(context, 'Fluency', fluency),
+                              _scorebar(context, 'Fluency', fluency, AppColors.primary),
                               const SizedBox(height: 12),
-                              _scorebar(context, 'Grammar', grammar),
+                              _scorebar(context, 'Grammar', grammar, AppColors.secondary),
                               const SizedBox(height: 12),
-                              _scorebar(context, 'Pronunciation', pronunciation),
+                              _scorebar(context, 'Pronunciation', pronunciation, const Color(0xFFFF9600)),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
                         // ── Prompt ─────────────────────────────────────────
                         if (promptText.isNotEmpty) ...[
@@ -146,6 +156,7 @@ class SessionDetailScreen extends StatelessWidget {
                             icon: Icons.chat_bubble_outline,
                             title: 'Prompt',
                             body: promptText,
+                            iconColor: AppColors.secondary,
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -155,16 +166,22 @@ class SessionDetailScreen extends StatelessWidget {
                           _sectionCard(
                             context,
                             icon: Icons.text_snippet_outlined,
-                            title: 'Your Transcript',
-                            body: transcript,
-                          ),
-                          const SizedBox(height: 16),
-                        ] else ...[
-                          _sectionCard(
-                            context,
-                            icon: Icons.text_snippet_outlined,
-                            title: 'Transcript',
-                            body: 'No transcript available for this session.',
+                            title: 'Your Transcription',
+                            bodyWidget: wordResults.isNotEmpty
+                                ? Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      WordHighlightWidget(words: wordResults),
+                                      const SizedBox(height: 12),
+                                      const WordHighlightLegend(),
+                                    ],
+                                  )
+                                : Text(transcript,
+                                    style: const TextStyle(
+                                        color: AppColors.textMedium,
+                                        fontSize: 14,
+                                        height: 1.6)),
+                            iconColor: AppColors.primary,
                           ),
                           const SizedBox(height: 16),
                         ],
@@ -174,8 +191,53 @@ class SessionDetailScreen extends StatelessWidget {
                           _sectionCard(
                             context,
                             icon: Icons.lightbulb_outline,
-                            title: 'AI Feedback',
+                            title: 'AI Insights',
                             body: feedback,
+                            iconColor: const Color(0xFFFF9600),
+                          ),
+                        ],
+
+                        // ── Grammar Fixes ──────────────────────────────────
+                        if (grammarCorrections.isNotEmpty) ...[
+                          _sectionCard(
+                            context,
+                            icon: Icons.spellcheck_rounded,
+                            title: 'Grammar Corrections',
+                            bodyWidget: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: grammarCorrections.map((e) => _listItem(e)).toList(),
+                            ),
+                            iconColor: AppColors.secondary,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // ── Native Tips ────────────────────────────────────
+                        if (improvementTips.isNotEmpty) ...[
+                          _sectionCard(
+                            context,
+                            icon: Icons.auto_awesome_rounded,
+                            title: 'Native-Level Tips',
+                            bodyWidget: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: improvementTips.map((e) => _listItem(e)).toList(),
+                            ),
+                            iconColor: const Color(0xFF6bcb77),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // ── Advanced Vocabulary ─────────────────────────────
+                        if (advancedVocabulary.isNotEmpty) ...[
+                          _sectionCard(
+                            context,
+                            icon: Icons.style_rounded,
+                            title: 'Power Vocabulary',
+                            bodyWidget: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: advancedVocabulary.map((e) => _listItem(e)).toList(),
+                            ),
+                            iconColor: AppColors.accentPurple,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -186,27 +248,25 @@ class SessionDetailScreen extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
     );
   }
 
-  Widget _bigScore(BuildContext context, String value, String label) {
+  Widget _bigScore(BuildContext context, String value, String label, Color color) {
     return Column(
       children: [
         Text(value,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 48,
+            style: TextStyle(
+                color: color,
+                fontSize: 32,
                 fontWeight: FontWeight.bold)),
         Text(label,
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+            style: const TextStyle(
+                color: AppColors.textMedium, fontSize: 11, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
-  Widget _scorebar(BuildContext context, String label, double score) {
+  Widget _scorebar(BuildContext context, String label, double score, Color color) {
     final pct = (score / 100).clamp(0.0, 1.0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,13 +275,13 @@ class SessionDetailScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label,
-                style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
-            Text('${score.toInt()}',
                 style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textDark,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+            Text('${score.toInt()}',
+                style: TextStyle(
+                    color: color,
                     fontSize: 13,
                     fontWeight: FontWeight.bold)),
           ],
@@ -232,9 +292,8 @@ class SessionDetailScreen extends StatelessWidget {
           child: LinearProgressIndicator(
             value: pct,
             minHeight: 8,
-            backgroundColor: Colors.white.withValues(alpha: 0.15),
-            valueColor:
-                const AlwaysStoppedAnimation<Color>(Colors.white),
+            backgroundColor: AppColors.borderLight,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),
       ],
@@ -245,32 +304,51 @@ class SessionDetailScreen extends StatelessWidget {
     BuildContext context, {
     required IconData icon,
     required String title,
-    required String body,
+    String? body,
+    Widget? bodyWidget,
+    required Color iconColor,
   }) {
     return GlassCard(
-      blur: 15,
-      opacity: 0.2,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
+              Icon(icon, color: iconColor, size: 20),
+              const SizedBox(width: 10),
               Text(title,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
+                      color: AppColors.textDark,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 12),
-          Text(body,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+          bodyWidget ?? Text(body!,
+              style: const TextStyle(
+                  color: AppColors.textMedium,
                   fontSize: 14,
-                  height: 1.5)),
+                  height: 1.6)),
+        ],
+      ),
+    );
+  }
+
+  Widget _listItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(color: AppColors.textMedium, fontSize: 16)),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                  color: AppColors.textMedium, fontSize: 13, height: 1.4),
+            ),
+          ),
         ],
       ),
     );

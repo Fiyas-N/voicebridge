@@ -5,9 +5,8 @@ import '../../core/utils/validators.dart';
 import '../../data/models/session.dart';
 import '../../data/models/user_profile.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/ai_pipeline.dart';
 import '../../services/firebase_service.dart';
-import '../../services/speech_to_text_service.dart';
+import '../../services/tts_service.dart';
 import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/word_highlight_widget.dart';
 import '../home/home_screen.dart';
@@ -33,6 +32,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   late List<AnimationController> _barControllers;
   late List<Animation<double>> _barAnims;
   bool _showTranscript = false;
+  // Using TtsService() singleton
 
   static const _scoreKeys = ['fluency', 'grammar', 'pronunciation'];
   static const _scoreLabels = ['Fluency & Coherence', 'Grammar Range', 'Pronunciation'];
@@ -65,6 +65,13 @@ class _FeedbackScreenState extends State<FeedbackScreen>
         if (mounted) _barControllers[i].forward();
       });
     }
+
+    // Auto-speak feedback after entry animations begin
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted && widget.session.feedback != null) {
+        TtsService().speak(widget.session.feedback!);
+      }
+    });
   }
 
   @override
@@ -73,6 +80,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     for (final c in _barControllers) {
       c.dispose();
     }
+    TtsService().stop();
     super.dispose();
   }
 
@@ -141,20 +149,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     final feedback = widget.session.feedback ?? '';
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background
-          LiquidGlassContainer(
-            height: MediaQuery.of(context).size.height,
-            colors: const [
-              Color(0xFF1a1a2e),
-              Color(0xFF16213e),
-              Color(0xFF0f3460),
-              Color(0xFF533483),
-            ],
-            child: const SizedBox.expand(),
-          ),
-          SafeArea(
+      backgroundColor: AppColors.backgroundOffWhite,
+      body: SafeArea(
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
@@ -305,8 +301,23 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         const SizedBox(height: 28),
 
                         // ── AI Feedback ──────────────────────────────────
+                          // ── AI Feedback ──────────────────────────────────
                         if (feedback.isNotEmpty) ...[
-                          const _SectionHeader(text: '💬  AI Feedback'),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const _SectionHeader(text: '💬  AI Feedback'),
+                              IconButton(
+                                icon: const Icon(Icons.volume_up_rounded, color: AppColors.primary),
+                                onPressed: () {
+                                  if (feedback.isNotEmpty) {
+                                    TtsService().stop();
+                                    TtsService().speak(feedback);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 14),
                           GlassCard(
                             padding: const EdgeInsets.all(22),
@@ -318,6 +329,41 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                 height: 1.7,
                               ),
                             ),
+                          ),
+                        ],
+
+                        // ── Deep Analysis (Grammar, Tips, Vocab) ─────────
+                        if (widget.session.grammarCorrections.isNotEmpty || 
+                            widget.session.improvementTips.isNotEmpty ||
+                            widget.session.advancedVocabulary.isNotEmpty) ...[
+                          const _SectionHeader(text: '🔍  Deep Analysis'),
+                          const SizedBox(height: 14),
+                          
+                          // Grammar Fixes
+                          _FeedbackExpansionTile(
+                            title: 'Grammar Corrections',
+                            icon: Icons.spellcheck_rounded,
+                            items: widget.session.grammarCorrections,
+                            color: AppColors.error,
+                            emptyText: 'No grammar mistakes detected! Excellent.',
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Native Tips
+                          _FeedbackExpansionTile(
+                            title: 'Native-Level Tips',
+                            icon: Icons.tips_and_updates_rounded,
+                            items: widget.session.improvementTips,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Vocab
+                          _FeedbackExpansionTile(
+                            title: 'Advanced Vocabulary',
+                            icon: Icons.auto_stories_rounded,
+                            items: widget.session.advancedVocabulary,
+                            color: AppColors.secondary,
                           ),
                           const SizedBox(height: 28),
                         ],
@@ -355,9 +401,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           ),
                           if (_showTranscript)
                             Builder(builder: (ctx) {
-                              // Use word-level results if available
-                              final words = (widget.session as dynamic).wordResults
-                                as List<WordInfo>? ?? [];
+                              // Use word-level results persisted in session
+                              final words = widget.session.wordResults ?? [];
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -435,8 +480,6 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 ),
               ],
             ),
-          ),
-        ],
       ),
     );
   }
@@ -562,6 +605,78 @@ class _AnimatedScoreBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+class _FeedbackExpansionTile extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<String> items;
+  final Color color;
+  final String? emptyText;
+
+  const _FeedbackExpansionTile({
+    required this.title,
+    required this.icon,
+    required this.items,
+    required this.color,
+    this.emptyText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: ExpansionTile(
+        leading: Icon(icon, color: color, size: 20),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textDark,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: items.isEmpty && emptyText != null
+            ? [
+                Text(
+                  emptyText!,
+                  style: const TextStyle(color: AppColors.success, fontSize: 13, fontStyle: FontStyle.italic),
+                )
+              ]
+            : items.map((item) => _FeedbackListTile(text: item, color: color)).toList(),
+      ),
+    );
+  }
+}
+
+class _FeedbackListTile extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _FeedbackListTile({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.1)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color.withValues(alpha: 0.8),
+          fontSize: 13,
+          height: 1.4,
+        ),
+      ),
     );
   }
 }

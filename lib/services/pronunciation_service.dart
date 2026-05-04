@@ -1,4 +1,4 @@
-import 'speech_to_text_service.dart';
+import 'local_stt_service.dart';
 
 class PronunciationResult {
   final double accuracyScore;
@@ -14,29 +14,36 @@ class PronunciationResult {
 }
 
 class PronunciationService {
-  final SpeechToTextService _sttService = SpeechToTextService();
+  final LocalSttService _sttService = LocalSttService();
   
-  /// Assess pronunciation using Whisper confidence scores (FREE - no external API)
+  /// Assess pronunciation using Local Whisper confidence scores (100% Offline)
   Future<PronunciationResult> assessPronunciation({
     required String audioPath,
     required String referenceText,
   }) async {
     try {
-      // Use Whisper transcription with word-level confidence
-      final transcription = await _sttService.transcribeAudio(audioPath);
+      final res = await _sttService.transcribe(audioPath);
       
-      // Calculate accuracy based on transcription match
+      // If referenceText is a general topic or very short compared to transcript,
+      // assume it's spontaneous and use the transcript as the reference.
+      final isSpontaneous = referenceText.split(' ').length < 3 || 
+                           referenceText.toLowerCase().contains('topic') ||
+                           referenceText.toLowerCase().contains('general');
+
+      // Calculate accuracy base
+      final effectiveReference = isSpontaneous ? res.transcript : referenceText;
+
       final accuracy = _calculateAccuracy(
-        transcription.transcript,
-        referenceText,
+        res.transcript,
+        effectiveReference,
       );
       
       // Calculate fluency based on word confidence scores
-      final fluency = _calculateFluency(transcription.words);
+      final fluency = _calculateFluency(res.words);
       
-      // Calculate completeness based on word count match
-      final completeness = _calculateCompleteness(
-        transcription.transcript,
+      // Calculate completeness
+      final completeness = isSpontaneous ? 100.0 : _calculateCompleteness(
+        res.transcript,
         referenceText,
       );
       

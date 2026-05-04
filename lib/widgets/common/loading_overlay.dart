@@ -16,11 +16,15 @@ class LoadingOverlay extends StatelessWidget {
     final content = Container(
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? AppColors.darkSurface
-            : AppColors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: AppShadows.large,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -30,7 +34,7 @@ class LoadingOverlay extends StatelessWidget {
             height: 48,
             child: CircularProgressIndicator(
               strokeWidth: 4,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlue),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
           ),
           if (message != null) ...[
@@ -98,8 +102,6 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
@@ -111,17 +113,11 @@ class _SkeletonLoaderState extends State<SkeletonLoader>
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
-              colors: isDark
-                  ? [
-                      AppColors.darkSurface,
-                      AppColors.darkSurfaceLight,
-                      AppColors.darkSurface,
-                    ]
-                  : [
-                      AppColors.lightGray,
-                      AppColors.lightGray.withValues(alpha: 0.5),
-                      AppColors.lightGray,
-                    ],
+              colors: [
+                AppColors.borderLight,
+                AppColors.borderLight.withValues(alpha: 0.5),
+                AppColors.borderLight,
+              ],
               stops: [
                 _animation.value - 0.3,
                 _animation.value,

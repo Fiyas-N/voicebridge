@@ -170,6 +170,8 @@ class FirebaseService {
         totalSessions: (raw['totalSessions'] as num?)?.toInt() ?? 0,
         baselineScores: baselineScores,
         weakAreas: weakAreas,
+        xp: (raw['xp'] as num?)?.toInt() ?? 0,
+        dailyGoal: (raw['dailyGoal'] as num?)?.toInt() ?? 3,
       );
     } catch (e) {
       debugPrint('getUserProfile error: $e');
@@ -206,6 +208,8 @@ class FirebaseService {
         'longestStreak': 0,
         'totalSessions': 0,
         'weakAreas': <String>[],
+        'xp': 0,
+        'dailyGoal': profile.dailyGoal,
       });
     }
   }

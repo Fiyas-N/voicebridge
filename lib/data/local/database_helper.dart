@@ -19,17 +19,19 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    // Drop and recreate all tables on any schema change
-    await db.execute('DROP TABLE IF EXISTS sessions');
-    await db.execute('DROP TABLE IF EXISTS user_profile');
-    await _createDB(db, newVersion);
+    if (oldVersion < 5) {
+      // For development simplicity, we drop and recreate
+      await db.execute('DROP TABLE IF EXISTS sessions');
+      await db.execute('DROP TABLE IF EXISTS user_profile');
+      await _createDB(db, newVersion);
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -80,8 +82,12 @@ class DatabaseHelper {
         estimated_band $realType,
         cefr_level TEXT,
         feedback TEXT,
+        word_results TEXT,
         synced INTEGER DEFAULT 0,
-        last_synced_at INTEGER
+        last_synced_at INTEGER,
+        grammar_corrections TEXT,
+        improvement_tips TEXT,
+        advanced_vocabulary TEXT
       )
     ''');
 

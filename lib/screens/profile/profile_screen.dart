@@ -74,23 +74,23 @@ class _ProfileScreenState extends State<ProfileScreen>
       builder: (ctx) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: const Color(0xFF2C2C3E),
+          backgroundColor: AppColors.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('Edit Name',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold)),
+                  color: AppColors.textDark, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: ctrl,
             autofocus: true,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: AppColors.textDark),
             decoration: InputDecoration(
               labelText: 'Display Name',
               labelStyle:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                  const TextStyle(color: AppColors.textMedium),
               enabledBorder: OutlineInputBorder(
                 borderSide:
-                    BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                    const BorderSide(color: AppColors.borderLight),
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
@@ -98,15 +98,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.08),
+              fillColor: AppColors.backgroundOffWhite,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
+              child: const Text('Cancel',
                   style:
-                      TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+                      TextStyle(color: AppColors.textMedium)),
             ),
             TextButton(
               onPressed: () async {
@@ -157,24 +157,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         : 'A1';
 
     return Scaffold(
+      backgroundColor: AppColors.backgroundOffWhite,
       body: Stack(
-        children: [
-          // ── Gradient background ──────────────────────────────────────────
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A1A2E),
-                  Color(0xFF16213E),
-                  Color(0xFF0F3460),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Decorative circles ───────────────────────────────────────────
+        children: [          // ── Decorative circles ───────────────────────────────────────────
           Positioned(
             top: -80,
             right: -60,
@@ -206,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 .textTheme
                                 .displayMedium
                                 ?.copyWith(
-                                  color: Colors.white,
+                                  color: AppColors.textDark,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -219,11 +204,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
+                                color: AppColors.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.settings_outlined,
-                                  color: Colors.white, size: 22),
+                                  color: AppColors.primary, size: 22),
                             ),
                           ),
                         ],
@@ -239,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: GlassCard(
                         blur: 20,
-                        opacity: 0.15,
+                        opacity: 1.0,
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
@@ -252,7 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   height: 90,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    gradient: LinearGradient(
+                                    gradient: const LinearGradient(
                                       colors: [
                                         AppColors.primary,
                                         AppColors.accentPurple,
@@ -290,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       color: AppColors.primary,
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                          color: const Color(0xFF1A1A2E),
+                                          color: AppColors.surface,
                                           width: 2),
                                     ),
                                     child: const Icon(Icons.edit,
@@ -306,7 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   ? user!.displayName
                                   : 'VoiceBridge User',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.textDark,
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -314,8 +299,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             const SizedBox(height: 4),
                             Text(
                               user?.email ?? '',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.6),
+                              style: const TextStyle(
+                                color: AppColors.textMedium,
                                 fontSize: 14,
                               ),
                             ),
@@ -358,8 +343,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                             const SizedBox(height: 12),
                             Text(
                               'Member since ${_formatDate(user?.createdAt)}',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.4),
+                              style: const TextStyle(
+                                color: AppColors.textMedium,
                                 fontSize: 12,
                               ),
                             ),
@@ -425,7 +410,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             const SizedBox(height: 12),
                             GlassCard(
                               blur: 15,
-                              opacity: 0.12,
+                              opacity: 1.0,
                               padding: const EdgeInsets.all(20),
                               child: Column(
                                 children: [
@@ -443,22 +428,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       user.baselineScores!.pronunciation,
                                       AppColors.accentPurple),
                                   const Divider(
-                                      color: Colors.white12, height: 28),
+                                      color: AppColors.borderLight, height: 28),
                                   Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text('Overall',
+                                      const Text('Overall',
                                           style: TextStyle(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.8),
+                                              color: AppColors.textDark,
                                               fontSize: 15,
                                               fontWeight:
                                                   FontWeight.w600)),
                                       Text(
                                         '${user.baselineScores!.composite.toStringAsFixed(1)}%',
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: AppColors.textDark,
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -487,7 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             const SizedBox(height: 12),
                             GlassCard(
                               blur: 15,
-                              opacity: 0.12,
+                              opacity: 1.0,
                               padding: const EdgeInsets.all(16),
                               child: Wrap(
                                 spacing: 8,
@@ -515,7 +499,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           const SizedBox(height: 12),
                           GlassCard(
                             blur: 15,
-                            opacity: 0.12,
+                            opacity: 1.0,
                             padding: EdgeInsets.zero,
                             child: Column(
                               children: [
@@ -581,7 +565,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }) {
     return GlassCard(
       blur: 12,
-      opacity: 0.12,
+      opacity: 1.0,
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
       child: Column(
         children: [
@@ -590,7 +574,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppColors.textDark,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -599,8 +583,8 @@ class _ProfileScreenState extends State<ProfileScreen>
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+            style: const TextStyle(
+              color: AppColors.textMedium,
               fontSize: 11,
             ),
           ),
@@ -618,8 +602,8 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: [
             Text(
               label,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+              style: const TextStyle(
+                  color: AppColors.textMedium, fontSize: 13),
             ),
             Text(
               '${score.toStringAsFixed(0)}%',
@@ -636,7 +620,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           child: LinearProgressIndicator(
             value: score / 100,
             minHeight: 6,
-            backgroundColor: Colors.white.withValues(alpha: 0.1),
+            backgroundColor: AppColors.borderLight,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),
@@ -656,7 +640,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Text(
         area,
         style: const TextStyle(
-            color: Colors.white70, fontSize: 13),
+            color: AppColors.error, fontSize: 13, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -665,7 +649,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Text(
       title,
       style: const TextStyle(
-        color: Colors.white,
+        color: AppColors.textDark,
         fontSize: 18,
         fontWeight: FontWeight.bold,
       ),
@@ -684,11 +668,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     return ListTile(
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: Icon(icon, color: iconColor ?? Colors.white70, size: 22),
+      leading: Icon(icon, color: iconColor ?? AppColors.primary, size: 22),
       title: Text(
         title,
         style: TextStyle(
-          color: titleColor ?? Colors.white,
+          color: titleColor ?? AppColors.textDark,
           fontWeight: FontWeight.w600,
           fontSize: 15,
         ),
@@ -697,19 +681,19 @@ class _ProfileScreenState extends State<ProfileScreen>
           ? Text(
               subtitle,
               style:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 12),
+                  const TextStyle(color: AppColors.textMedium, fontSize: 12),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             )
           : null,
-      trailing: Icon(Icons.chevron_right,
-          color: Colors.white.withValues(alpha: 0.3), size: 20),
+      trailing: const Icon(Icons.chevron_right,
+          color: AppColors.borderMedium, size: 20),
       onTap: onTap,
     );
   }
 
   Widget _divider() =>
-      Divider(height: 1, color: Colors.white.withValues(alpha: 0.08));
+      const Divider(height: 1, color: AppColors.borderLight);
 
   String _formatDate(DateTime? dt) {
     if (dt == null) return '—';

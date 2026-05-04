@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -197,7 +196,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary.withOpacity(0.15) : AppColors.surface,
+          color: selected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
               color: selected ? AppColors.primary : AppColors.borderLight, width: 2),
@@ -469,7 +468,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.15),
+                color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -506,7 +505,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       padding:
                           const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.secondary.withOpacity(0.15),
+                        color: AppColors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text('BASELINE',

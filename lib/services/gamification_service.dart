@@ -107,14 +107,38 @@ class GamificationService {
     if (profile == null) return [];
 
     final int sessionXP = calculateSessionXP(compositeScore);
-    final int currentXP = (profile['xp'] as int? ?? 0) + sessionXP;
+    int currentXP = (profile['xp'] as int? ?? 0) + sessionXP;
+    final int oldTotalSessions = profile['total_sessions'] as int? ?? 0;
+    final int newTotalSessions = oldTotalSessions + 1;
 
-    // Daily goal tracking
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final lastDate = profile['last_session_date'] as String? ?? '';
-    final todaySessions = (lastDate == today
-        ? (profile['daily_sessions_today'] as int? ?? 0) + 1
-        : 1);
+    // Streak Logic
+    final now = DateTime.now();
+    final today = now.toIso8601String().substring(0, 10);
+    final lastDateStr = profile['last_session_date'] as String? ?? '';
+    
+    int currentStreak = profile['current_streak'] as int? ?? 0;
+    int longestStreak = profile['longest_streak'] as int? ?? 0;
+    int todaySessions = (lastDateStr == today ? (profile['daily_sessions_today'] as int? ?? 0) + 1 : 1);
+
+    if (lastDateStr.isEmpty) {
+      currentStreak = 1;
+    } else {
+      final lastDate = DateTime.parse(lastDateStr);
+      final difference = now.difference(lastDate).inDays;
+
+      if (difference == 1) {
+        // Logged in yesterday, increment streak
+        currentStreak++;
+      } else if (difference > 1) {
+        // Missed a day, reset streak
+        currentStreak = 1;
+      }
+      // If difference is 0, it's the same day, streak doesn't change
+    }
+
+    if (currentStreak > longestStreak) {
+      longestStreak = currentStreak;
+    }
 
     // Achievements check
     final List<String> unlocked = [];
@@ -127,13 +151,12 @@ class GamificationService {
       if (condition && !existing.contains(key)) {
         existing.add(key);
         unlocked.add(key);
-        // Bonus XP for achievement
         final bonus = achievements[key]?['xpReward'] as int? ?? 0;
-        currentXP + bonus; // will be included in next update
+        currentXP += bonus;
       }
     }
 
-    check('first_session', totalSessions + 1 >= 1);
+    check('first_session', newTotalSessions >= 1);
     check('streak_3', currentStreak >= 3);
     check('streak_7', currentStreak >= 7);
     check('streak_30', currentStreak >= 30);
@@ -141,8 +164,8 @@ class GamificationService {
     check('cefr_b2', cefrLevel == 'B2' || cefrLevel == 'C1' || cefrLevel == 'C2');
     check('cefr_c1', cefrLevel == 'C1' || cefrLevel == 'C2');
     check('score_90', compositeScore >= 90);
-    check('sessions_10', totalSessions + 1 >= 10);
-    check('sessions_50', totalSessions + 1 >= 50);
+    check('sessions_10', newTotalSessions >= 10);
+    check('sessions_50', newTotalSessions >= 50);
 
     final achievementsJson = '[${existing.map((s) => '"$s"').join(',')}]';
 
@@ -150,6 +173,9 @@ class GamificationService {
       'xp': currentXP,
       'daily_sessions_today': todaySessions,
       'last_session_date': today,
+      'current_streak': currentStreak,
+      'longest_streak': longestStreak,
+      'total_sessions': newTotalSessions,
       'achievements_json': achievementsJson,
     }, where: 'user_id = ?', whereArgs: [userId]);
 

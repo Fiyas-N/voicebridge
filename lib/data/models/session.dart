@@ -1,3 +1,5 @@
+import 'dart:convert';
+import '../../services/local_stt_service.dart';
 enum SessionStatus {
   recording,
   pendingUpload,
@@ -22,7 +24,13 @@ class Session {
   final String? transcript;
   final SessionScores? scores;
   final String? feedback;
+  final List<WordInfo>? wordResults;
   final bool synced;
+
+  // Advanced Feedback
+  final List<String> grammarCorrections;
+  final List<String> improvementTips;
+  final List<String> advancedVocabulary;
 
   Session({
     required this.sessionId,
@@ -39,7 +47,11 @@ class Session {
     this.transcript,
     this.scores,
     this.feedback,
+    this.wordResults,
     this.synced = false,
+    this.grammarCorrections = const [],
+    this.improvementTips = const [],
+    this.advancedVocabulary = const [],
   });
 
   /// fromJson handles BOTH snake_case keys (from SQLite) and camelCase keys (from Firebase).
@@ -83,7 +95,21 @@ class Session {
       transcript:    json['transcript']                        as String?,
       scores:        scores,
       feedback:      json['feedback']                          as String?,
+      wordResults:   json['word_results'] != null 
+                       ? (jsonDecode(json['word_results'] as String) as List).map((w) => WordInfo.fromJson(w)).toList()
+                       : (json['wordResults'] != null 
+                           ? (json['wordResults'] as List).map((w) => WordInfo.fromJson(w)).toList()
+                           : null),
       synced:        json['synced'] == 1 || json['synced'] == true,
+      grammarCorrections: (json['grammar_corrections'] != null)
+          ? (jsonDecode(json['grammar_corrections'] as String) as List).cast<String>()
+          : (json['grammarCorrections'] != null ? (json['grammarCorrections'] as List).cast<String>() : const []),
+      improvementTips: (json['improvement_tips'] != null)
+          ? (jsonDecode(json['improvement_tips'] as String) as List).cast<String>()
+          : (json['improvementTips'] != null ? (json['improvementTips'] as List).cast<String>() : const []),
+      advancedVocabulary: (json['advanced_vocabulary'] != null)
+          ? (jsonDecode(json['advanced_vocabulary'] as String) as List).cast<String>()
+          : (json['advancedVocabulary'] != null ? (json['advancedVocabulary'] as List).cast<String>() : const []),
     );
   }
 
@@ -124,7 +150,7 @@ class Session {
     }
   }
 
-  /// For Firebase / Groq API serialisation (camelCase keys).
+  /// For Firebase serialisation (camelCase keys).
   Map<String, dynamic> toJson() {
     return {
       'sessionId': sessionId,
@@ -141,7 +167,11 @@ class Session {
       'transcript': transcript,
       'scores': scores?.toJson(),
       'feedback': feedback,
+      'wordResults': wordResults?.map((w) => w.toJson()).toList(),
       'synced': synced ? 1 : 0,
+      'grammarCorrections': grammarCorrections,
+      'improvementTips': improvementTips,
+      'advancedVocabulary': advancedVocabulary,
     };
   }
 
@@ -168,7 +198,11 @@ class Session {
       'estimated_band':      scores?.estimatedIELTSBand,
       'cefr_level':          scores?.cefrLevel,
       'feedback':            feedback,
+      'word_results':        wordResults != null ? jsonEncode(wordResults!.map((w) => w.toJson()).toList()) : null,
       'synced':              synced ? 1 : 0,
+      'grammar_corrections': jsonEncode(grammarCorrections),
+      'improvement_tips':    jsonEncode(improvementTips),
+      'advanced_vocabulary': jsonEncode(advancedVocabulary),
     };
   }
 
@@ -188,6 +222,7 @@ class Session {
     String? transcript,
     SessionScores? scores,
     String? feedback,
+    List<WordInfo>? wordResults,
     bool? synced,
   }) {
     return Session(
@@ -205,6 +240,7 @@ class Session {
       transcript: transcript ?? this.transcript,
       scores: scores ?? this.scores,
       feedback: feedback ?? this.feedback,
+      wordResults: wordResults ?? this.wordResults,
       synced: synced ?? this.synced,
     );
   }

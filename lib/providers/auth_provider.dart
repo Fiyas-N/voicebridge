@@ -159,6 +159,12 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reloads user profile from DB to reflect gamification changes
+  Future<void> refreshUserProfile() async {
+    if (_currentUser == null) return;
+    await _loadUserProfile();
+  }
+
   Future<void> updateDisplayName(String newName) async {
     _isLoading = true;
     notifyListeners();

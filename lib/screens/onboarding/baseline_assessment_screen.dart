@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -15,77 +14,61 @@ class BaselineAssessmentScreen extends StatelessWidget {
     final baselinePrompt = IELTSPrompts.getBaselinePrompt();
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Liquid Glass Background
-          LiquidGlassContainer(
-            height: MediaQuery.of(context).size.height,
-            colors: const [
-              Color(0xFFe0e0e0),
-              Color(0xFF9e9e9e),
-              Color(0xFFe0e0e0),
-              Color(0xFF616161),
-            ],
-            child: const SizedBox.expand(),
-          ),
-          
-          // Content
-          SafeArea(
+      backgroundColor: AppColors.backgroundOffWhite,
+      body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
+                  const Text(
                     'Baseline Assessment',
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 32,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  Text(
+                  const Text(
                     'Before you start practicing, we need to understand your current speaking level',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
+                    style: TextStyle(
+                      color: AppColors.textMedium,
+                      fontSize: 16,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
                   
-                  // Glass Card
+                  // Card
                   GlassCard(
-                    blur: 15,
-                    opacity: 0.25,
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'What to expect:',
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 20),
                         _buildExpectationItem(context, 'One-time test'),
-                        _buildExpectationItem(context, '30-45 seconds'),
-                        _buildExpectationItem(context, 'Simple prompt'),
-                        _buildExpectationItem(context, 'No interruptions'),
+                        _buildExpectationItem(context, '30-45 seconds of speaking'),
+                        _buildExpectationItem(context, 'Simple question prompt'),
+                        _buildExpectationItem(context, 'Instant AI assessment'),
                       ],
                     ),
                   ),
                   
                   const Spacer(),
                   
-                  // Glass Button
-                  GlassButton(
-                    blur: 10,
-                    opacity: 0.2,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
+                  // Button
+                  ElevatedButton(
                     onPressed: () {
                       final authProvider = Provider.of<AuthProvider>(context, listen: false);
                       Navigator.of(context).pushReplacement(
@@ -98,12 +81,20 @@ class BaselineAssessmentScreen extends StatelessWidget {
                         ),
                       );
                     },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
                     child: const Text(
                       'I\'m Ready to Begin',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -111,8 +102,6 @@ class BaselineAssessmentScreen extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
     );
   }
 
@@ -121,24 +110,21 @@ class BaselineAssessmentScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_circle,
-              color: Colors.white,
-              size: 20,
-            ),
+          const Icon(
+            Icons.check_circle,
+            color: AppColors.primary,
+            size: 24,
           ),
           const SizedBox(width: 12),
-          Text(
-            text,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
-                ),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: AppColors.textDark,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),

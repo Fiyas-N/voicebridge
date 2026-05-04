@@ -1,9 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../data/local/database_helper.dart';
 import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/tts_service.dart';
 import '../../services/gamification_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../widgets/common/glass_card.dart';
@@ -60,12 +59,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _bannerAnimation = CurvedAnimation(parent: _bannerController, curve: Curves.elasticOut);
     _bannerController.forward();
 
-    // Load XP/daily goal after first frame (needs auth context)
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadGamificationStats());
+    // Load XP/daily goal after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadGamificationStats();
+      // Listen for auth/profile changes to refresh stats
+      Provider.of<AuthProvider>(context, listen: false).addListener(_loadGamificationStats);
+    });
   }
 
   @override
   void dispose() {
+    // Remove listener safely
+    try {
+      Provider.of<AuthProvider>(context, listen: false).removeListener(_loadGamificationStats);
+    } catch (_) {}
     _tipController.dispose();
     _bannerController.dispose();
     super.dispose();
@@ -132,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             Text(
                               'Good ${_getGreeting()},',
                               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: Colors.white.withValues(alpha: 0.9),
                                     letterSpacing: 0.5,
                                   ),
                             ),
@@ -277,13 +284,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         const SizedBox(height: 24),
 
                         // ── Quick Actions ──────────────────────────────────
-                        Text(
-                          'Quick Actions',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Quick Actions',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            // Voice Selection Toggle
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.borderLight),
                               ),
+                              child: Row(
+                                children: [
+                                  _voiceOption(context, '👩', !TtsService().isMale, () {
+                                    setState(() => TtsService().setVoice(false));
+                                  }),
+                                  _voiceOption(context, '👨', TtsService().isMale, () {
+                                    setState(() => TtsService().setVoice(true));
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
+                        _buildActionButton(
+                          context,
+                          Icons.mic_rounded,
+                          '🎙️  Mock Interview',
+                          'Practice for your specific interests',
+                          Colors.orangeAccent,
+                          () => _showMockInterviewSetup(context),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildActionButton(
+                          context,
+                          Icons.auto_awesome_rounded,
+                          '✨  Natural Free Talk',
+                          'Spontaneous, unscripted chat with AI',
+                          AppColors.primary,
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ConversationScreen()),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         _buildActionButton(
                           context,
                           Icons.forum_rounded,
@@ -354,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     showModalBottomSheet(
       context: ctx,
-      backgroundColor: const Color(0xFF1e1e3a),
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -367,14 +418,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const Text(
               'Choose a Conversation Topic',
               style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textDark,
                   fontWeight: FontWeight.bold,
                   fontSize: 18),
             ),
             const SizedBox(height: 16),
-            ...topics.map((t) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: GestureDetector(
+            _buildTopicTile(
+              emoji: '✨',
+              title: 'Natural Free Talk',
+              subtitle: 'Start a random, spontaneous conversation',
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(ctx, MaterialPageRoute(builder: (_) => const ConversationScreen()));
+              },
+              isHighlight: true,
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: topics.length,
+                itemBuilder: (context, index) {
+                  final t = topics[index];
+                  return _buildTopicTile(
+                    emoji: t.$2,
+                    title: t.$1,
+                    subtitle: t.$3,
                     onTap: () {
                       Navigator.pop(ctx);
                       Navigator.push(
@@ -387,43 +456,144 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       );
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.07),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12)),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(t.$2, style: const TextStyle(fontSize: 24)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(t.$1,
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14)),
-                                Text(t.$3,
-                                    style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.55),
-                                        fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right_rounded,
-                              color: Colors.white38),
-                        ],
-                      ),
-                    ),
-                  ),
-                )),
+                  );
+                },
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showMockInterviewSetup(BuildContext ctx) {
+    final TextEditingController interestController = TextEditingController();
+
+    showModalBottomSheet(
+      context: ctx,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 40,
+          top: 24,
+          left: 24,
+          right: 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Mock Interview 🎙️',
+              style: TextStyle(
+                color: AppColors.textDark,
+                fontWeight: FontWeight.bold,
+                fontSize: 22,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Which role or interest would you like to practice for?',
+              style: TextStyle(color: AppColors.textMedium, fontSize: 14),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: interestController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'e.g. Software Engineer, Marketing, Travel...',
+                filled: true,
+                fillColor: AppColors.backgroundOffWhite,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.work_outline_rounded, color: AppColors.primary),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  final interest = interestController.text.trim();
+                  if (interest.isNotEmpty) {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      ctx,
+                      MaterialPageRoute(
+                        builder: (_) => ConversationScreen(
+                          topic: 'Mock Interview: $interest',
+                          topicEmoji: '💼',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  'Start Interview',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopicTile({
+    required String emoji,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isHighlight = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isHighlight ? AppColors.primary.withValues(alpha: 0.1) : AppColors.backgroundOffWhite,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: isHighlight ? AppColors.primary.withValues(alpha: 0.2) : AppColors.borderLight),
+          ),
+          child: Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 24)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            color: isHighlight ? AppColors.primaryDark : AppColors.textDark,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14)),
+                    Text(subtitle,
+                        style: const TextStyle(color: AppColors.textMedium, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: isHighlight ? AppColors.primary : AppColors.borderMedium),
+            ],
+          ),
         ),
       ),
     );
@@ -497,7 +667,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.25),
+                color: Colors.white.withValues(alpha: 0.25),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.flag_outlined, color: Colors.white, size: 26),
@@ -568,7 +738,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.15),
+                  color: AppColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -629,7 +799,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: accent.withOpacity(0.15),
+                color: accent.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: accent, size: 24),
@@ -637,12 +807,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 10),
             Text(
               title,
-              style: Theme.of(ctx).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark, // Changed to darker text color
+              ),
             ),
             const SizedBox(height: 3),
             Text(
               subtitle,
-              style: Theme.of(ctx).textTheme.bodySmall,
+              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                color: AppColors.textDark.withValues(alpha: 0.8), // Changed to darker text color with opacity
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -669,7 +844,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: accent.withOpacity(0.15),
+                color: accent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: accent, size: 22),
@@ -693,7 +868,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             Icon(
               Icons.chevron_right_rounded,
-              color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.3),
+              color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.3),
             ),
           ],
         ),
@@ -704,53 +879,73 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ── Daily Tip Card ─────────────────────────────────────────────────────────
   Widget _buildTipCard(BuildContext ctx) {
     final tip = _tips[_tipIndex];
-    return GlassCard(
-      blur: 16,
-      opacity: 0.2,
-      padding: const EdgeInsets.all(20),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF667eea).withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('💡', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 8),
-              Text(
-                'Speaking Tip of the Day',
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lightbulb_outline_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'SPEAKING TIP',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: Colors.white70,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           Text(
-            '${tip['icon']}  ${tip['tip']}',
+            tip['tip']!,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 14,
-              height: 1.6,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
             ),
           ),
-          const SizedBox(height: 14),
-          // Dot indicators
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
               _tips.length,
               (i) => AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: i == _tipIndex ? 18 : 6,
-                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: i == _tipIndex ? 24 : 8,
+                height: 8,
                 decoration: BoxDecoration(
                   color: i == _tipIndex
                       ? Colors.white
                       : Colors.white.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
             ),
@@ -765,6 +960,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (hour < 12) return 'morning';
     if (hour < 17) return 'afternoon';
     return 'evening';
+  }
+
+  Widget _voiceOption(BuildContext context, String emoji, bool isSelected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          emoji,
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.white.withAlpha(isSelected ? 255 : 102),
+          ),
+        ),
+      ),
+    );
   }
 }
 

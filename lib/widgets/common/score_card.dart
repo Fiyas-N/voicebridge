@@ -95,7 +95,7 @@ class _ScoreCardState extends State<ScoreCard>
               animation: _progressAnimation,
               builder: (context, child) {
                 return Text(
-                  '${(widget.score * _progressAnimation.value).toStringAsFixed(0)}',
+                  (widget.score * _progressAnimation.value).toStringAsFixed(0),
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: _getScoreColor(),
@@ -212,7 +212,7 @@ class _CircularScoreCardState extends State<CircularScoreCard>
                     ),
                   ),
                   Text(
-                    '${(widget.score * _progressAnimation.value).toStringAsFixed(0)}',
+                    (widget.score * _progressAnimation.value).toStringAsFixed(0),
                     style: Theme.of(context).textTheme.displayMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: _getScoreColor(),

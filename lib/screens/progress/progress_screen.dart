@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -369,7 +368,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
               const SizedBox(width: 8),
               Text(
                 value,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.textDark,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -381,7 +380,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: accent.withOpacity(0.1),
+              color: accent.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -421,7 +420,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (v) => FlLine(
+          getDrawingHorizontalLine: (v) => const FlLine(
             color: AppColors.borderLight,
             strokeWidth: 2,
             dashArray: [5, 5],
@@ -470,7 +469,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             ),
             belowBarData: BarAreaData(
               show: true,
-              color: AppColors.primary.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.6),
             ),
           ),
         ],
@@ -484,9 +483,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: accent.withOpacity(0.15),
+            color: accent.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accent.withOpacity(0.5), width: 2),
+            border: Border.all(color: accent.withValues(alpha: 0.5), width: 2),
           ),
           child: Icon(icon, color: accent, size: 24),
         ),

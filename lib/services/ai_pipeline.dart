@@ -1,4 +1,7 @@
-import 'speech_to_text_service.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'local_stt_service.dart';
+import 'local_llm_service.dart';
 import 'grammar_service.dart';
 import 'pronunciation_service.dart';
 import 'feedback_service.dart';
@@ -6,50 +9,57 @@ import 'feedback_service.dart';
 /// AI Processing Pipeline
 /// Orchestrates all AI services to analyze speech recordings
 class AIProcessingPipeline {
-  final SpeechToTextService _sttService = SpeechToTextService();
+  final LocalSttService _sttService = LocalSttService();
   final GrammarAnalysisService _grammarService = GrammarAnalysisService();
   final PronunciationService _pronunciationService = PronunciationService();
   final FeedbackService _feedbackService = FeedbackService();
 
-  /// Process audio file through complete AI pipeline
+  /// Process audio file through the fully on-device pipeline:
+  ///   STT      → Whisper tiny  (on-device, audio never leaves phone)
+  ///   Grammar  → LanguageTool API (online) or heuristics (offline) — no LLM
+  ///   LLM      → Gemma 3 1B (on-device, loaded once for feedback only)
+  ///   TTS      → Kokoro (on-device, handled by TtsService upstream)
   Future<SessionAnalysis> processRecording({
     required String audioPath,
     required String promptText,
   }) async {
+    final llm = LocalLlmService();
     try {
-      // Step 1: Transcribe audio to text using Groq Whisper
-      final transcription = await _sttService.transcribeAudio(audioPath);
+      // Step 1: Transcribe audio — Whisper runs fully on-device
+      debugPrint('Pipeline: Starting STT transcription…');
+      final transcription = await _sttService.transcribe(audioPath);
 
       if (transcription.transcript.trim().isEmpty) {
         throw Exception('No speech detected in audio');
       }
 
-      // Step 2 & 3: Analyze grammar and pronunciation in parallel
-      final results = await Future.wait([
-        _grammarService.analyzeGrammar(transcription.transcript),
-        _pronunciationService.assessPronunciation(
-          audioPath: audioPath,
-          referenceText: promptText,
-        ),
-      ]);
+      // Step 2: Grammar analysis — LanguageTool API (online) or heuristics
+      // NOTE: No LLM needed here — Gemma is reserved for feedback only.
+      debugPrint('Pipeline: Running grammar analysis…');
+      final grammar = await _grammarService.analyzeGrammar(transcription.transcript);
 
-      final grammar = results[0] as GrammarResult;
-      final pronunciation = results[1] as PronunciationResult;
+      // Step 3: Pronunciation assessment (heuristics, no extra model)
+      final pronunciation = await _pronunciationService.assessPronunciation(
+        audioPath: audioPath,
+        referenceText: promptText,
+      );
 
-      // Step 4: Calculate overall score
+      // Step 4: Score calculation
       final overallScore = _calculateOverallScore(
         fluency: pronunciation.fluencyScore,
         grammar: grammar.score,
         pronunciation: pronunciation.overallScore,
       );
-
-      // Step 5: Map to speaking band and CEFR level
       final ieltsBand = _mapToSpeakingBand(overallScore);
       final cefr = _mapToCEFR(overallScore);
 
-      // Step 6: Generate personalized feedback using Groq Llama
-      final errorTypes = grammar.errors.map((e) => e.type).toSet().toList();
+      // Step 5: Load Gemma — STT done, grammar done, now we need feedback.
+      // warmLoad() was already called at recording start so this is usually instant.
+      debugPrint('Pipeline: Loading Gemma 3 1B for feedback… RSS: ${ProcessInfo.currentRss ~/ 1024 ~/ 1024}MB');
+      await llm.loadModel();
 
+      // Step 6: Personalised feedback — single Gemma call
+      final errorTypes = grammar.errors.map((e) => e.type).toSet().toList();
       final feedback = await _feedbackService.generateFeedback(
         fluencyScore: pronunciation.fluencyScore,
         grammarScore: grammar.score,
@@ -58,10 +68,15 @@ class AIProcessingPipeline {
         correctedSentence: grammar.correctedText,
       );
 
+      // Step 7: Unload LLM immediately — free RAM before TTS loads
+      debugPrint('Pipeline: Unloading LLM… RSS: ${ProcessInfo.currentRss ~/ 1024 ~/ 1024}MB');
+      await llm.unloadModel();
+
+      debugPrint('Pipeline: Complete.');
       return SessionAnalysis(
         transcription: transcription.transcript,
         transcriptionConfidence: transcription.confidence,
-        wordResults: transcription.words, // word-level confidence for highlighting
+        wordResults: transcription.words,
         fluencyScore: pronunciation.fluencyScore,
         grammarScore: grammar.score,
         pronunciationScore: pronunciation.overallScore,
@@ -74,6 +89,7 @@ class AIProcessingPipeline {
         timestamp: DateTime.now(),
       );
     } catch (e) {
+      await llm.unloadModel(); // always free RAM on error
       throw Exception('AI processing failed: $e');
     }
   }

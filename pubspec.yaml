@@ -22,6 +22,7 @@ dependencies:
   provider: ^6.1.1
   
   # Local Storage
+  path: ^1.9.0
   sqflite: ^2.3.0
   shared_preferences: ^2.2.2
   path_provider: ^2.1.1
@@ -31,10 +32,6 @@ dependencies:
   audioplayers: ^5.2.1
   permission_handler: ^11.2.0
   
-  # Networking & Connectivity
-  http: ^1.1.2
-  connectivity_plus: ^5.0.2
-  
   # UI & Utilities
   intl: ^0.18.1
   fl_chart: ^0.65.0
@@ -43,7 +40,17 @@ dependencies:
   
   # Text-to-Speech (AI voice in conversation mode)
   flutter_tts: ^4.0.2
+  kokoro_tts_flutter: ^0.2.0+1
   
+  # On-Device AI (STT)
+  whisper_flutter_new: ^1.0.1
+
+  # Grammar checking (online when available, heuristic fallback when offline)
+  language_tool: ^2.2.0
+
+  # On-Device LLM (Gemma 3 via MediaPipe / LiteRT)
+  flutter_gemma: ^0.9.0
+
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
@@ -56,8 +63,11 @@ flutter:
   
   assets:
     - .env
+    - assets/tokenizer_vocab.json
     - assets/images/
     - assets/icons/
+    - assets/models/kokoro/
+    - assets/models/whisper/
 
 dependency_overrides:
   record_linux: ^1.3.0

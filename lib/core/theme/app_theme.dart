@@ -19,8 +19,16 @@ class AppColors {
 
   // Backgrounds & Neutrals
   static const Color background = Color(0xFFFFFFFF);
+  static const Color backgroundCard = Color(0xFFF8FAFC);
   static const Color backgroundOffWhite = Color(0xFFF7F7F7); // Typical Duolingo background
   static const Color surface = Color(0xFFFFFFFF);
+  
+  // Immersive Voice UI Colors
+  static const Color immersiveDark = Color(0xFF0F172A);
+  static const Color immersiveBlack = Color(0xFF020617);
+  static const Color orbActive = Color(0xFF38BDF8);
+  static const Color orbThinking = Color(0xFFFBBF24);
+  static const Color orbSpeaking = Color(0xFF4ADE80);
   
   static const Color textDark = Color(0xFF4B4B4B); // Softer than black, very readable
   static const Color textMedium = Color(0xFF777777);
@@ -40,13 +48,36 @@ class AppColors {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+  // Aliases for compatibility with older code
+  static const Color mediumGray = textMedium;
+  static const Color lightGray = borderLight;
+  static const Color successGreen = success;
+  static const Color warningAmber = warning;
+  static const Color errorRed = error;
+  static const Color primaryBlue = secondary;
+  static const Color accentTeal = Color(0xFF1CB0F6); // Fallback Blue-Teal
+  
+  static const LinearGradient subtleGradient = LinearGradient(
+    colors: [Color(0xFFF7F7F7), Color(0xFFE5E5E5)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
 }
 
 class AppAnimations {
+  static const Curve smoothCurve = Curves.easeInOut;
   static const Duration fast = Duration(milliseconds: 150);
   static const Duration medium = Duration(milliseconds: 250);
   static const Duration slow = Duration(milliseconds: 400);
   static const Curve bouncyCurve = Curves.elasticOut;
+
+  static List<BoxShadow> get softShadow => [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ];
 }
 
 class AppTheme {

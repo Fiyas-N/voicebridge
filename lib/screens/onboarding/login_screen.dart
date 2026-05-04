@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -100,66 +99,52 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.backgroundOffWhite,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Stack(
-        children: [
-          // Liquid Glass Background
-          LiquidGlassContainer(
-            height: MediaQuery.of(context).size.height,
-            colors: const [
-              Color(0xFFe0e0e0), // Light Gray
-              Color(0xFF9e9e9e), // Silver
-              Color(0xFF616161), // Charcoal
-              Color(0xFF212121), // Dark Gray
-            ],
-            child: const SizedBox.expand(),
-          ),
-          
-          // Content
-          SafeArea(
+      body: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
                   const SizedBox(height: 60),
-                  // Glass Logo
+                  // Logo
                   GlassCard(
-                    blur: 15,
-                    opacity: 0.25,
                     padding: const EdgeInsets.all(20),
                     borderRadius: BorderRadius.circular(40),
                     child: const Icon(
                       Icons.login_rounded,
                       size: 40,
-                      color: Colors.white,
+                      color: AppColors.primary,
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text(
+                  const Text(
                     'Welcome Back!',
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 32,
+                    ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Log in to continue your journey',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
+                  const Text(
+                    'Continue your English journey',
+                    style: TextStyle(
+                      color: AppColors.textMedium,
+                      fontSize: 16,
+                    ),
                   ),
                   const SizedBox(height: 40),
                   
-                  // Glass Form Card
+                  // Form Card
                   GlassCard(
                     blur: 20,
                     opacity: 0.2,
@@ -168,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          _buildGlassTextField(
+                          _buildTextField(
                             controller: _emailController,
                             label: 'Email',
                             hint: 'john@example.com',
@@ -178,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             textInputAction: TextInputAction.next,
                           ),
                           const SizedBox(height: 16),
-                          _buildGlassTextField(
+                          _buildTextField(
                             controller: _passwordController,
                             label: 'Password',
                             hint: '••••••••',
@@ -190,12 +175,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 32),
                           
-                          // Glass Button
-                          GlassButton(
-                            blur: 10,
-                            opacity: 0.2,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
+                          ElevatedButton(
                             onPressed: _isLoading ? null : _handleLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
                             child: _isLoading
                                 ? const SizedBox(
                                     height: 24,
@@ -203,16 +193,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2.5,
                                       valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF11998e),
+                                        Colors.white,
                                       ),
                                     ),
                                   )
                                 : const Text(
                                     'Log In',
                                     style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF11998e),
                                     ),
                                   ),
                           ),
@@ -224,22 +213,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Forgot Password
                   TextButton(
                     onPressed: _handleForgotPassword,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                    ),
                     child: const Text(
                       'Forgot Password?',
-                      style: TextStyle(fontSize: 14),
+                      style: TextStyle(
+                        color: AppColors.textMedium,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         "Don't have an account? ",
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                            ),
+                        style: TextStyle(
+                          color: AppColors.textMedium,
+                          fontSize: 14,
+                        ),
                       ),
                       TextButton(
                         onPressed: () {
@@ -249,14 +240,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white,
-                        ),
                         child: const Text(
                           'Sign Up',
                           style: TextStyle(
+                            color: AppColors.primary,
                             fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
@@ -266,12 +254,10 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-        ],
-      ),
     );
   }
 
-  Widget _buildGlassTextField({
+  Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     required String hint,
@@ -289,37 +275,28 @@ class _LoginScreenState extends State<LoginScreen> {
       validator: validator,
       textInputAction: textInputAction,
       onFieldSubmitted: onFieldSubmitted,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppColors.textDark),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: Colors.white.withValues(alpha: 0.7)),
-        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.9)),
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        prefixIcon: Icon(icon, color: AppColors.textMedium),
+        labelStyle: const TextStyle(color: AppColors.textMedium),
+        hintStyle: const TextStyle(color: AppColors.borderMedium),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.1),
+        fillColor: AppColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+          borderSide: const BorderSide(color: AppColors.borderLight),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+          borderSide: const BorderSide(color: AppColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.red.shade300),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.red.shade300, width: 2),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
       ),
     );
   }
 }
-

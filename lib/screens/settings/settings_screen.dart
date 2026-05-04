@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common/glass_card.dart';
 import '../onboarding/welcome_screen.dart';
+import '../../core/theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -27,35 +28,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: const Color(0xFF424242),
+          backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
           title: const Text('Edit Name',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: AppColors.textDark),
             decoration: InputDecoration(
               labelText: 'Display Name',
-              labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+              labelStyle: const TextStyle(color: AppColors.textMedium),
               enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                borderSide: const BorderSide(color: AppColors.borderLight),
                 borderRadius: BorderRadius.circular(12),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.white),
+                borderSide: const BorderSide(color: AppColors.primary),
                 borderRadius: BorderRadius.circular(12),
               ),
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.1),
+              fillColor: AppColors.backgroundOffWhite,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textMedium)),
             ),
             TextButton(
               onPressed: () async {
@@ -64,26 +65,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Navigator.pop(ctx);
                 try {
                   await auth.updateDisplayName(name);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Name updated successfully!'),
-                          backgroundColor: Colors.green),
-                    );
-                  }
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red),
+                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                     );
                   }
                 }
               },
               child: const Text('Save',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -99,82 +90,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: AlertDialog(
-            backgroundColor: const Color(0xFF424242),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20)),
-            title: const Text('Change Password',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
-            content: Column(
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Change Password',
+              style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+          content: StatefulBuilder(
+            builder: (ctx, setDialogState) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _dialogTextField(currentCtrl, 'Current Password',
-                    obscure: true),
+                _dialogTextField(currentCtrl, 'Current Password', obscure: true),
                 const SizedBox(height: 12),
                 _dialogTextField(newCtrl, 'New Password', obscure: true),
                 const SizedBox(height: 12),
-                _dialogTextField(confirmCtrl, 'Confirm New Password',
-                    obscure: true),
+                _dialogTextField(confirmCtrl, 'Confirm New Password', obscure: true),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text('Cancel',
-                    style:
-                        TextStyle(color: Colors.white.withValues(alpha: 0.7))),
-              ),
-              TextButton(
-                onPressed: () async {
-                  if (newCtrl.text != confirmCtrl.text) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Passwords do not match'),
-                          backgroundColor: Colors.orange),
-                    );
-                    return;
-                  }
-                  if (newCtrl.text.length < 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Password must be at least 6 characters'),
-                          backgroundColor: Colors.orange),
-                    );
-                    return;
-                  }
-                  Navigator.pop(ctx);
-                  try {
-                    await auth.changePassword(
-                      currentPassword: currentCtrl.text,
-                      newPassword: newCtrl.text,
-                    );
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Password changed successfully!'),
-                            backgroundColor: Colors.green),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content: Text('Error: $e'),
-                            backgroundColor: Colors.red),
-                      );
-                    }
-                  }
-                },
-                child: const Text('Change',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textMedium)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (newCtrl.text != confirmCtrl.text) return;
+                Navigator.pop(ctx);
+                try {
+                  await auth.changePassword(
+                    currentPassword: currentCtrl.text,
+                    newPassword: newCtrl.text,
+                  );
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('Change',
+                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+            ),
+          ],
         ),
       ),
     );
@@ -188,18 +148,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: const Color(0xFF424242),
+          backgroundColor: AppColors.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('Delete Account',
               style: TextStyle(
-                  color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                  color: AppColors.error, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
                 'This will permanently delete your account and all session data. This cannot be undone.',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: AppColors.textMedium),
               ),
               const SizedBox(height: 16),
               _dialogTextField(passwordCtrl, 'Enter Your Password',
@@ -209,8 +169,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textMedium)),
             ),
             TextButton(
               onPressed: () async {
@@ -237,7 +197,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
               child: const Text('Delete Account',
                   style: TextStyle(
-                      color: Colors.redAccent,
+                      color: AppColors.error,
                       fontWeight: FontWeight.bold)),
             ),
           ],
@@ -253,19 +213,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
-          backgroundColor: const Color(0xFF424242),
+          backgroundColor: AppColors.surface,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('Log Out',
-              style: TextStyle(color: Colors.white)),
+              style: TextStyle(color: AppColors.textDark)),
           content: const Text('Are you sure you want to log out?',
-              style: TextStyle(color: Colors.white70)),
+              style: TextStyle(color: AppColors.textMedium)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel',
+              child: const Text('Cancel',
                   style:
-                      TextStyle(color: Colors.white.withValues(alpha: 0.7))),
+                      TextStyle(color: AppColors.textMedium)),
             ),
             TextButton(
               onPressed: () {
@@ -277,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
               child: const Text('Log Out',
                   style: TextStyle(
-                      color: Colors.redAccent,
+                      color: AppColors.error,
                       fontWeight: FontWeight.bold)),
             ),
           ],
@@ -292,20 +252,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return TextField(
       controller: ctrl,
       obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppColors.textDark),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+        labelStyle: const TextStyle(color: AppColors.textMedium),
         enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+          borderSide: const BorderSide(color: AppColors.borderLight),
           borderRadius: BorderRadius.circular(12),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.white),
+          borderSide: const BorderSide(color: AppColors.primary),
           borderRadius: BorderRadius.circular(12),
         ),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.1),
+        fillColor: AppColors.backgroundOffWhite,
       ),
     );
   }
@@ -321,26 +281,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListTile(
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Icon(icon, color: Colors.white),
+      leading: Icon(icon, color: AppColors.primary),
       title: Text(
         title,
         style: Theme.of(context)
             .textTheme
             .bodyLarge
-            ?.copyWith(fontWeight: FontWeight.w600, color: Colors.white),
+            ?.copyWith(fontWeight: FontWeight.w600, color: AppColors.textDark),
       ),
       subtitle: Text(
         subtitle,
         style: Theme.of(context)
             .textTheme
             .bodySmall
-            ?.copyWith(color: Colors.white.withValues(alpha: 0.8)),
+            ?.copyWith(color: AppColors.textMedium),
       ),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: Colors.white,
-        activeTrackColor: Colors.white.withValues(alpha: 0.5),
+        activeColor: AppColors.primary,
+        activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
       ),
     );
   }
@@ -357,12 +317,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListTile(
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Icon(icon, color: iconColor ?? Colors.white),
+      leading: Icon(icon, color: iconColor ?? AppColors.primary),
       title: Text(
         title,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               fontWeight: FontWeight.w600,
-              color: titleColor ?? Colors.white,
+              color: titleColor ?? AppColors.textDark,
             ),
       ),
       subtitle: Text(
@@ -370,10 +330,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: Theme.of(context)
             .textTheme
             .bodySmall
-            ?.copyWith(color: Colors.white.withValues(alpha: 0.8)),
+            ?.copyWith(color: AppColors.textMedium),
       ),
       trailing:
-          Icon(Icons.chevron_right, color: Colors.white.withValues(alpha: 0.5)),
+          const Icon(Icons.chevron_right, color: AppColors.borderMedium),
       onTap: onTap,
     );
   }
@@ -385,19 +345,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = auth.currentUser;
 
     return Scaffold(
+      backgroundColor: AppColors.backgroundOffWhite,
       body: Stack(
         children: [
-          // Background
-          LiquidGlassContainer(
-            height: MediaQuery.of(context).size.height,
-            colors: const [
-              Color(0xFFe0e0e0),
-              Color(0xFF9e9e9e),
-              Color(0xFFe0e0e0),
-              Color(0xFF616161),
-            ],
-            child: const SizedBox.expand(),
-          ),
           SafeArea(
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
@@ -407,47 +357,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   expandedHeight: 120,
                   floating: false,
                   pinned: true,
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: AppColors.backgroundOffWhite,
                   elevation: 0,
-                  flexibleSpace: ClipRRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [
-                            Colors.white.withValues(alpha: 0.2),
-                            Colors.white.withValues(alpha: 0.1),
-                          ]),
-                        ),
-                        child: SafeArea(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Profile & Settings',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .displayMedium
-                                      ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Manage your account and preferences',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                          color:
-                                              Colors.white.withValues(alpha: 0.9)),
-                                ),
-                              ],
-                            ),
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      color: AppColors.backgroundOffWhite,
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Profile & Settings',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .displayMedium
+                                    ?.copyWith(
+                                        color: AppColors.textDark,
+                                        fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Manage your account and preferences',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                        color: AppColors.textMedium),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -466,15 +407,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         if (user != null) ...[
                           GlassCard(
                             blur: 15,
-                            opacity: 0.25,
+                            opacity: 1.0,
                             padding: const EdgeInsets.all(20),
                             child: Row(
                               children: [
                                 Container(
                                   width: 70,
                                   height: 70,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.3),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
@@ -502,16 +443,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                             ? user.displayName
                                             : 'User',
                                         style: const TextStyle(
-                                            color: Colors.white,
+                                            color: AppColors.textDark,
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         user.email,
-                                        style: TextStyle(
-                                            color: Colors.white
-                                                .withValues(alpha: 0.8),
+                                        style: const TextStyle(
+                                            color: AppColors.textMedium,
                                             fontSize: 14),
                                       ),
                                       const SizedBox(height: 8),
@@ -529,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.edit,
-                                      color: Colors.white),
+                                      color: AppColors.primary),
                                   onPressed: () =>
                                       _showEditProfileDialog(context, auth),
                                 ),
@@ -557,9 +497,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 (v) => setState(
                                     () => _notificationsEnabled = v),
                               ),
-                              Divider(
+                              const Divider(
                                   height: 1,
-                                  color: Colors.white.withValues(alpha: 0.1)),
+                                  color: AppColors.borderLight),
                               _buildGlassSwitchTile(
                                 context,
                                 Icons.volume_up_outlined,
@@ -568,9 +508,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 _soundEnabled,
                                 (v) => setState(() => _soundEnabled = v),
                               ),
-                              Divider(
+                              const Divider(
                                   height: 1,
-                                  color: Colors.white.withValues(alpha: 0.1)),
+                                  color: AppColors.borderLight),
                               _buildGlassSwitchTile(
                                 context,
                                 Icons.vibration_outlined,
@@ -600,9 +540,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 'Change how your name appears',
                                 () => _showEditProfileDialog(context, auth),
                               ),
-                              Divider(
+                              const Divider(
                                   height: 1,
-                                  color: Colors.white.withValues(alpha: 0.1)),
+                                  color: AppColors.borderLight),
                               _buildGlassActionTile(
                                 context,
                                 Icons.lock_outline,
@@ -611,9 +551,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 () =>
                                     _showChangePasswordDialog(context, auth),
                               ),
-                              Divider(
+                              const Divider(
                                   height: 1,
-                                  color: Colors.white.withValues(alpha: 0.1)),
+                                  color: AppColors.borderLight),
                               _buildGlassActionTile(
                                 context,
                                 Icons.email_outlined,
@@ -664,9 +604,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 iconColor: Colors.orange,
                                 titleColor: Colors.orange,
                               ),
-                              Divider(
+                              const Divider(
                                   height: 1,
-                                  color: Colors.white.withValues(alpha: 0.1)),
+                                  color: AppColors.borderLight),
                               _buildGlassActionTile(
                                 context,
                                 Icons.delete_forever_outlined,
@@ -682,20 +622,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 28),
 
                         // ── App Info ─────────────────────────────────────────
-                        Center(
+                        const Center(
                           child: Text(
                             'VoiceBridge v1.0.0',
                             style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.4),
+                                color: AppColors.textMedium,
                                 fontSize: 13),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Center(
+                        const Center(
                           child: Text(
                             'Your Speaking Practice Partner',
                             style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.3),
+                                color: AppColors.textMedium,
                                 fontSize: 12),
                           ),
                         ),
@@ -716,7 +656,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Text(
       label,
       style: Theme.of(context).textTheme.displaySmall?.copyWith(
-            color: Colors.white,
+            color: AppColors.textDark,
             fontWeight: FontWeight.bold,
           ),
     );
@@ -726,11 +666,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child:
-          Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(text, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 }

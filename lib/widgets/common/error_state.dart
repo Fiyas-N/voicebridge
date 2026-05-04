@@ -84,7 +84,7 @@ class ErrorState extends StatelessWidget {
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: AppAnimations.medium,
-              curve: AppAnimations.bounceCurve,
+              curve: AppAnimations.bouncyCurve,
               builder: (context, value, child) {
                 return Transform.scale(
                   scale: value,
@@ -95,13 +95,13 @@ class ErrorState extends StatelessWidget {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: AppColors.errorRed.withValues(alpha: 0.1),
+                  color: AppColors.error.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   icon,
                   size: 50,
-                  color: AppColors.errorRed,
+                  color: AppColors.error,
                 ),
               ),
             ),
@@ -113,7 +113,7 @@ class ErrorState extends StatelessWidget {
               title,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppColors.darkText,
+                    color: AppColors.textDark,
                   ),
               textAlign: TextAlign.center,
             ),
@@ -124,7 +124,7 @@ class ErrorState extends StatelessWidget {
             Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.mediumGray,
+                    color: AppColors.textMedium,
                   ),
               textAlign: TextAlign.center,
             ),
@@ -137,7 +137,7 @@ class ErrorState extends StatelessWidget {
                 icon: const Icon(Icons.refresh),
                 label: Text(actionLabel!),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,

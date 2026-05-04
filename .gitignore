@@ -23,3 +23,25 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Debug / analysis log files (generated during development)
+*.log
+*_output.txt
+*_output_*.txt
+*_results.txt
+*_results_*.txt
+analyze_output*.txt
+analysis_output*.txt
+final_*.txt
+dart_compile*.log
+build_output.log
+run_error.txt
+flutter_01.log
+fresh_build_log.txt
+gradle_error.log
+voices.json
+voices_v2.json
+
+# Large model assets (downloaded at runtime, not committed)
+assets/models/llm/
+assets/models/whisper/ggml*.bin

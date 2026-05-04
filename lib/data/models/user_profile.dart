@@ -11,6 +11,8 @@ class UserProfile {
   final int totalSessions;
   final BaselineScores? baselineScores;
   final List<String> weakAreas;
+  final int xp;
+  final int dailyGoal;
 
   UserProfile({
     required this.userId,
@@ -25,6 +27,8 @@ class UserProfile {
     this.totalSessions = 0,
     this.baselineScores,
     this.weakAreas = const [],
+    this.xp = 0,
+    this.dailyGoal = 3,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -47,6 +51,8 @@ class UserProfile {
       weakAreas: json['weakAreas'] != null
           ? List<String>.from(json['weakAreas'] as List)
           : [],
+      xp: json['xp'] as int? ?? 0,
+      dailyGoal: json['dailyGoal'] as int? ?? 3,
     );
   }
 
@@ -64,6 +70,8 @@ class UserProfile {
       'totalSessions': totalSessions,
       'baselineScores': baselineScores?.toJson(),
       'weakAreas': weakAreas,
+      'xp': xp,
+      'dailyGoal': dailyGoal,
     };
   }
 
@@ -80,6 +88,8 @@ class UserProfile {
     int? totalSessions,
     BaselineScores? baselineScores,
     List<String>? weakAreas,
+    int? xp,
+    int? dailyGoal,
   }) {
     return UserProfile(
       userId: userId ?? this.userId,
@@ -94,6 +104,8 @@ class UserProfile {
       totalSessions: totalSessions ?? this.totalSessions,
       baselineScores: baselineScores ?? this.baselineScores,
       weakAreas: weakAreas ?? this.weakAreas,
+      xp: xp ?? this.xp,
+      dailyGoal: dailyGoal ?? this.dailyGoal,
     );
   }
 }

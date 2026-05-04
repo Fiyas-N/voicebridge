@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/speech_to_text_service.dart';
+import '../../core/theme/app_theme.dart';
+import '../../services/local_stt_service.dart';
 
 /// Displays a transcript with each word color-coded by Whisper confidence.
 /// 🟢 ≥0.85 — 🟡 0.65–0.84 — 🔴 <0.65
@@ -16,9 +17,9 @@ class WordHighlightWidget extends StatelessWidget {
   });
 
   Color _colorForConfidence(double confidence) {
-    if (confidence >= 0.85) return const Color(0xFF6bcb77); // green
-    if (confidence >= 0.65) return const Color(0xFFffd166); // yellow
-    return const Color(0xFFef233c);                          // red
+    if (confidence >= 0.85) return AppColors.success;
+    if (confidence >= 0.65) return AppColors.warning;
+    return AppColors.error;
   }
 
   @override
@@ -55,11 +56,11 @@ class WordHighlightLegend extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _dot(const Color(0xFF6bcb77), 'Good'),
+        _dot(AppColors.success, 'Good'),
         const SizedBox(width: 12),
-        _dot(const Color(0xFFffd166), 'Review'),
+        _dot(AppColors.warning, 'Review'),
         const SizedBox(width: 12),
-        _dot(const Color(0xFFef233c), 'Improve'),
+        _dot(AppColors.error, 'Improve'),
       ],
     );
   }
@@ -75,8 +76,8 @@ class WordHighlightLegend extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(label,
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.65), fontSize: 11)),
+            style: const TextStyle(
+                color: AppColors.textMedium, fontSize: 11)),
       ],
     );
   }

@@ -3,10 +3,13 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../data/models/prompt.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/session_provider.dart';
+import '../../services/local_llm_service.dart';
 import '../../widgets/common/glass_card.dart'; // We use Gamified GlassCard now
 import '../../widgets/common/animated_button.dart';
 import 'feedback_screen.dart';
+
 
 class RecordingScreen extends StatefulWidget {
   final Prompt prompt;
@@ -115,7 +118,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                         'Part ${widget.prompt.ieltsPartNumber} · ${widget.prompt.category}',
                         style:
                             Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withOpacity(0.8),
+                                  color: Colors.white.withValues(alpha: 0.8),
                                 ),
                       ),
                     ],
@@ -180,13 +183,13 @@ class _RecordingScreenState extends State<RecordingScreen>
                         child: Container(
                           width: 120,
                           height: 120,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: AppColors.secondary,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
                                 color: AppColors.borderMedium,
-                                offset: const Offset(0, 8),
+                                offset: Offset(0, 8),
                               ),
                             ],
                           ),
@@ -220,7 +223,7 @@ class _RecordingScreenState extends State<RecordingScreen>
   Widget _buildRecordingScreen(SessionProvider sessionProvider) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.05),
+        color: AppColors.error.withValues(alpha: 0.05),
       ),
       child: Column(
         children: [
@@ -241,7 +244,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -279,8 +282,8 @@ class _RecordingScreenState extends State<RecordingScreen>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: AppColors.error.withOpacity(
-                                  0.3 * (1 - (_pulseAnimation.value - 1) / 0.3),
+                                color: AppColors.error.withValues(
+                                  alpha: 0.3 * (1 - (_pulseAnimation.value - 1) / 0.3),
                                 ),
                                 width: 4,
                               ),
@@ -406,7 +409,7 @@ class _RecordingScreenState extends State<RecordingScreen>
                       Text(
                         'Duration: ${Formatters.formatDuration(session.audioDuration ?? 0)}',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white.withOpacity(0.9),
+                              color: Colors.white.withValues(alpha: 0.9),
                             ),
                       ),
                     ],
@@ -444,7 +447,10 @@ class _RecordingScreenState extends State<RecordingScreen>
                       child: AnimatedButton(
                         text: 'Submit',
                         icon: Icons.send,
-                        onPressed: () => _submitRecording(sessionProvider),
+                        onPressed: () => _submitRecording(
+                          sessionProvider,
+                          Provider.of<AuthProvider>(context, listen: false),
+                        ),
                       ),
                     ),
                   ],
@@ -482,6 +488,11 @@ class _RecordingScreenState extends State<RecordingScreen>
         widget.userId,
         isBaseline: widget.isBaseline,
       );
+
+      // Pre-warm Gemma while the user is speaking.
+      // User typically speaks 5–30 seconds — plenty of time to load the
+      // model into GPU memory so there is no cold-start wait after STT.
+      LocalLlmService().warmLoad();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -509,9 +520,10 @@ class _RecordingScreenState extends State<RecordingScreen>
     }
   }
 
-  Future<void> _submitRecording(SessionProvider sessionProvider) async {
+  Future<void> _submitRecording(
+      SessionProvider sessionProvider, AuthProvider authProvider) async {
     try {
-      await sessionProvider.submitRecording();
+      await sessionProvider.submitRecording(authProvider);
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(

@@ -1,29 +1,52 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:collection';
+import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:kokoro_tts_flutter/kokoro_tts_flutter.dart';
 
-/// TTS Service — Provides human-like AI voice using ElevenLabs (if configured)
-/// Falls back to flutter_tts if API key is missing.
+/// TTS Service — on-device voice using Kokoro TTS with flutter_tts fallback.
+/// 100% offline, no cloud API calls.
 class TtsService {
+  static final TtsService _instance = TtsService._internal();
+  factory TtsService() => _instance;
+  TtsService._internal();
+
   final FlutterTts _flutterTts = FlutterTts();
   final AudioPlayer _audioPlayer = AudioPlayer();
-  
+  late Kokoro _kokoro;
+
+  final Queue<String> _textQueue = Queue<String>();
+  bool _isProcessingQueue = false;
+
   bool _isSpeaking = false;
   bool _isInitialized = false;
+  bool _isMale = false;
+
+  static const _kokoroFemale = 'af_heart';
+  static const _kokoroMale = 'am_adam';
 
   bool get isSpeaking => _isSpeaking;
+  bool get isMale => _isMale;
+
+  void setVoice(bool isMale) {
+    _isMale = isMale;
+    debugPrint('TTS Voice set to: ${isMale ? 'Male' : 'Female'}');
+  }
+
+  String get currentVoiceProfile => _isMale ? _kokoroMale : _kokoroFemale;
+
+  void setVoiceProfile(String id) {
+    _isMale = (id == _kokoroMale);
+    debugPrint('TTS Voice profile set to: $id (isMale: $_isMale)');
+  }
 
   Future<void> init() async {
     if (_isInitialized) return;
     await _flutterTts.setLanguage('en-US');
-    await _flutterTts.setSpeechRate(0.48);  
+    await _flutterTts.setSpeechRate(0.48);
     await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(1.05);       
+    await _flutterTts.setPitch(1.05);
 
     _flutterTts.setStartHandler(() => _isSpeaking = true);
     _flutterTts.setCompletionHandler(() => _isSpeaking = false);
@@ -35,90 +58,75 @@ class TtsService {
         _isSpeaking = false;
       }
     });
-    final voices = await _flutterTts.getVoices as List<dynamic>?;
-    if (voices != null) {
-      final enVoices = voices
-          .cast<Map<dynamic, dynamic>>()
-          .where((v) =>
-              (v['locale'] as String?)?.startsWith('en') == true)
-          .toList();
-      if (enVoices.isNotEmpty) {
-        final voice = enVoices.first;
-        await _flutterTts.setVoice({
-          'name': voice['name'] as String,
-          'locale': voice['locale'] as String,
-        });
-      }
-    }
 
+    _initKokoro();
     _isInitialized = true;
   }
 
-  /// Speak [text] using ElevenLabs (if available) or fallback to local TTS
+  Future<void> _initKokoro() async {
+    try {
+      _kokoro = Kokoro(const KokoroConfig(
+        modelPath: 'assets/models/kokoro/kokoro-v1.0.onnx',
+        voicesPath: 'assets/models/kokoro/voices-v1.0.bin',
+      ));
+      await _kokoro.initialize();
+      debugPrint('Kokoro TTS initialized successfully');
+    } catch (e) {
+      debugPrint('Error initializing Kokoro TTS: $e');
+    }
+  }
+
   Future<void> speak(String text) async {
     await init();
-    await stop();
-    _isSpeaking = true;
+    _textQueue.add(text);
+    _processQueue();
+  }
 
-    final apiKey = dotenv.env['ELEVENLABS_API_KEY'];
-    
-    if (apiKey != null && apiKey.isNotEmpty) {
+  Future<void> _processQueue() async {
+    if (_isProcessingQueue) return;
+    _isProcessingQueue = true;
+
+    while (_textQueue.isNotEmpty) {
+      final text = _textQueue.removeFirst();
+      if (text.trim().isEmpty) continue;
+
+      _isSpeaking = true;
+
       try {
-        await _speakWithElevenLabs(text, apiKey);
-        return;
+        debugPrint('TTS: Speaking with Kokoro ($currentVoiceProfile)');
+        final result =
+            await _kokoro.createTTS(text: text, voice: currentVoiceProfile);
+        await _audioPlayer.play(BytesSource(
+            Uint8List.fromList(result.audio.map((e) => e.toInt()).toList())));
       } catch (e) {
-        debugPrint('ElevenLabs TTS failed ($e), falling back to flutter_tts');
+        debugPrint('Kokoro TTS failed ($e), using system TTS fallback');
+        await _flutterTts.speak(text);
+      }
+
+      while (_isSpeaking) {
+        await Future.delayed(const Duration(milliseconds: 100));
       }
     }
-    
-    // Fallback to local TTS
-    await _flutterTts.speak(text);
+
+    _isProcessingQueue = false;
   }
 
-  Future<void> _speakWithElevenLabs(String text, String apiKey) async {
-    // A nice, friendly female US voice ID from ElevenLabs (e.g., "Rachel" or "Drew")
-    const voiceId = 'EXAVITQu4vr4xnSDxMaL'; // "Sarah" - warm/professional
-
-    final url = Uri.parse('https://api.elevenlabs.io/v1/text-to-speech/$voiceId');
-    final response = await http.post(
-      url,
-      headers: {
-        'Accept': 'audio/mpeg',
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'text': text,
-        'model_id': 'eleven_monolingual_v1',
-        'voice_settings': {
-          'stability': 0.5,
-          'similarity_boost': 0.75,
-        }
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/tts_temp.mp3');
-      await file.writeAsBytes(response.bodyBytes);
-      
-      await _audioPlayer.play(DeviceFileSource(file.path));
-    } else {
-      throw Exception('ElevenLabs API error: ${response.statusCode} - ${response.body}');
-    }
-  }
-
-  /// Wait until TTS finishes speaking.
   Future<void> waitUntilDone() async {
-    while (_isSpeaking) {
+    while (_isSpeaking || _isProcessingQueue || _textQueue.isNotEmpty) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 
   Future<void> stop() async {
-    await _flutterTts.stop();
-    await _audioPlayer.stop();
+    _textQueue.clear();
+    _isProcessingQueue = false;
     _isSpeaking = false;
+    try {
+      await _flutterTts.stop();
+    } catch (_) {}
+    try {
+      await _audioPlayer.stop();
+    } catch (_) {}
   }
 
   void dispose() {
