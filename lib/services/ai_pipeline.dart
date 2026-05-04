@@ -9,10 +9,12 @@ import 'feedback_service.dart';
 /// AI Processing Pipeline
 /// Orchestrates all AI services to analyze speech recordings
 class AIProcessingPipeline {
+  // Public so SessionProvider can drive each step independently
+  // for progressive UI disclosure (transcript shown before feedback).
+  final GrammarAnalysisService grammarService = GrammarAnalysisService();
+  final PronunciationService pronunciationService = PronunciationService();
+  final FeedbackService feedbackService = FeedbackService();
   final LocalSttService _sttService = LocalSttService();
-  final GrammarAnalysisService _grammarService = GrammarAnalysisService();
-  final PronunciationService _pronunciationService = PronunciationService();
-  final FeedbackService _feedbackService = FeedbackService();
 
   /// Process audio file through the fully on-device pipeline:
   ///   STT      → Whisper tiny  (on-device, audio never leaves phone)
@@ -36,10 +38,10 @@ class AIProcessingPipeline {
       // Step 2: Grammar analysis — LanguageTool API (online) or heuristics
       // NOTE: No LLM needed here — Gemma is reserved for feedback only.
       debugPrint('Pipeline: Running grammar analysis…');
-      final grammar = await _grammarService.analyzeGrammar(transcription.transcript);
+      final grammar = await grammarService.analyzeGrammar(transcription.transcript);
 
       // Step 3: Pronunciation assessment (heuristics, no extra model)
-      final pronunciation = await _pronunciationService.assessPronunciation(
+      final pronunciation = await pronunciationService.assessPronunciation(
         audioPath: audioPath,
         referenceText: promptText,
       );
@@ -60,7 +62,7 @@ class AIProcessingPipeline {
 
       // Step 6: Personalised feedback — single Gemma call
       final errorTypes = grammar.errors.map((e) => e.type).toSet().toList();
-      final feedback = await _feedbackService.generateFeedback(
+      final feedback = await feedbackService.generateFeedback(
         fluencyScore: pronunciation.fluencyScore,
         grammarScore: grammar.score,
         pronunciationScore: pronunciation.overallScore,
@@ -93,6 +95,18 @@ class AIProcessingPipeline {
       throw Exception('AI processing failed: $e');
     }
   }
+
+  /// Calculate weighted overall score (public helper for session_provider).
+  /// Fluency: 40%, Grammar: 35%, Pronunciation: 25%
+  double calcOverallScore({
+    required double fluency,
+    required double grammar,
+    required double pronunciation,
+  }) => _calculateOverallScore(
+      fluency: fluency, grammar: grammar, pronunciation: pronunciation);
+
+  /// Map overall score to IELTS band (public helper for session_provider).
+  double calcBand(double score) => _mapToSpeakingBand(score);
 
   /// Calculate weighted overall score
   /// Fluency: 40%, Grammar: 35%, Pronunciation: 25%

@@ -14,11 +14,15 @@ import '../home/home_screen.dart';
 class FeedbackScreen extends StatefulWidget {
   final Session session;
   final bool isBaseline;
+  /// Token stream from Gemma — provided when the screen is shown BEFORE
+  /// feedback generation has finished. Null when viewing a past session.
+  final Stream<String>? feedbackStream;
 
   const FeedbackScreen({
     super.key,
     required this.session,
     this.isBaseline = false,
+    this.feedbackStream,
   });
 
   @override
@@ -32,7 +36,10 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   late List<AnimationController> _barControllers;
   late List<Animation<double>> _barAnims;
   bool _showTranscript = false;
-  // Using TtsService() singleton
+
+  /// Accumulated feedback text when streaming (used for TTS at end).
+  final StringBuffer _streamedFeedback = StringBuffer();
+  bool _streamDone = false;
 
   static const _scoreKeys = ['fluency', 'grammar', 'pronunciation'];
   static const _scoreLabels = ['Fluency & Coherence', 'Grammar Range', 'Pronunciation'];
@@ -66,12 +73,17 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       });
     }
 
-    // Auto-speak feedback after entry animations begin
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted && widget.session.feedback != null) {
-        TtsService().speak(widget.session.feedback!);
-      }
-    });
+    // Auto-speak feedback:
+    // If we have a stream, speak only after it completes.
+    // If we already have static feedback (history view), speak it directly.
+    if (widget.feedbackStream == null) {
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted && widget.session.feedback != null) {
+          TtsService().speak(widget.session.feedback!);
+        }
+      });
+    }
+    // Stream mode: TTS fires in the StreamBuilder onDone callback below.
   }
 
   @override
@@ -300,19 +312,23 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         ),
                         const SizedBox(height: 28),
 
-                        // ── AI Feedback ──────────────────────────────────
-                          // ── AI Feedback ──────────────────────────────────
-                        if (feedback.isNotEmpty) ...[
+                        // ── AI Coaching (streaming or static) ────────────────
+                        if (widget.feedbackStream != null ||
+                            feedback.isNotEmpty) ...[
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const _SectionHeader(text: '💬  AI Feedback'),
+                              const _SectionHeader(text: '💬  AI Coaching'),
                               IconButton(
-                                icon: const Icon(Icons.volume_up_rounded, color: AppColors.primary),
+                                icon: const Icon(Icons.volume_up_rounded,
+                                    color: AppColors.primary),
                                 onPressed: () {
-                                  if (feedback.isNotEmpty) {
+                                  final text = _streamDone
+                                      ? _streamedFeedback.toString()
+                                      : feedback;
+                                  if (text.isNotEmpty) {
                                     TtsService().stop();
-                                    TtsService().speak(feedback);
+                                    TtsService().speak(text);
                                   }
                                 },
                               ),
@@ -321,14 +337,61 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           const SizedBox(height: 14),
                           GlassCard(
                             padding: const EdgeInsets.all(22),
-                            child: Text(
-                              feedback,
-                              style: const TextStyle(
-                                color: AppColors.textDark,
-                                fontSize: 14,
-                                height: 1.7,
-                              ),
-                            ),
+                            child: widget.feedbackStream != null
+                                ? StreamBuilder<String>(
+                                    stream: widget.feedbackStream,
+                                    builder: (context, snapshot) {
+                                      if (snapshot.hasData) {
+                                        _streamedFeedback
+                                            .write(snapshot.data);
+                                      }
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.done) {
+                                        if (!_streamDone) {
+                                          _streamDone = true;
+                                          Future.delayed(
+                                              const Duration(
+                                                  milliseconds: 300),
+                                              () {
+                                            if (mounted) {
+                                              TtsService().speak(
+                                                  _streamedFeedback
+                                                      .toString());
+                                            }
+                                          });
+                                        }
+                                        return Text(
+                                          _streamedFeedback.toString(),
+                                          style: const TextStyle(
+                                            color: AppColors.textDark,
+                                            fontSize: 14,
+                                            height: 1.7,
+                                          ),
+                                        );
+                                      }
+                                      // Actively streaming — tokens + cursor
+                                      final current =
+                                          _streamedFeedback.toString();
+                                      return Text(
+                                        current.isEmpty
+                                            ? 'Generating coaching feedback… ◌'
+                                            : '$current ◌',
+                                        style: const TextStyle(
+                                          color: AppColors.textDark,
+                                          fontSize: 14,
+                                          height: 1.7,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Text(
+                                    feedback,
+                                    style: const TextStyle(
+                                      color: AppColors.textDark,
+                                      fontSize: 14,
+                                      height: 1.7,
+                                    ),
+                                  ),
                           ),
                         ],
 

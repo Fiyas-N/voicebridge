@@ -4,10 +4,32 @@ import 'local_llm_service.dart';
 class FeedbackService {
   final LocalLlmService _localLlm = LocalLlmService();
 
+  /// Build the raw prompt string for Gemma.
+  /// Called by session_provider when using streaming mode.
+  String buildPrompt({
+    required double fluencyScore,
+    required double grammarScore,
+    required double pronunciationScore,
+    required List<String> grammarErrors,
+    String? correctedSentence,
+  }) {
+    return '''You are an encouraging English coach.
+Provide 1 sentence of encouragement and 3 short actionable improvement tips.
+
+Performance:
+- Fluency: ${fluencyScore.toStringAsFixed(1)}
+- Grammar: ${grammarScore.toStringAsFixed(1)}
+- Pronunciation: ${pronunciationScore.toStringAsFixed(1)}
+- Error types: ${grammarErrors.isNotEmpty ? grammarErrors.join(", ") : "None"}
+${correctedSentence != null && correctedSentence.isNotEmpty ? "- Corrected: $correctedSentence" : ""}
+
+Rules:
+- Max 100 words.
+- Be warm and specific.
+''';
+  }
+
   /// Generate personalized coaching feedback using the on-device Gemma 3 1B model.
-  ///
-  /// Only structured score data is passed to the model — never raw audio or
-  /// the full transcript — keeping the privacy-first promise intact.
   Future<String> generateFeedback({
     required double fluencyScore,
     required double grammarScore,
@@ -15,28 +37,15 @@ class FeedbackService {
     required List<String> grammarErrors,
     String? correctedSentence,
   }) async {
-    final performanceData = '''
-Performance:
-- Fluency: ${fluencyScore.toStringAsFixed(1)}
-- Grammar: ${grammarScore.toStringAsFixed(1)}
-- Pronunciation: ${pronunciationScore.toStringAsFixed(1)}
-- Error types: ${grammarErrors.isNotEmpty ? grammarErrors.join(", ") : "None"}
-${correctedSentence != null ? "- Corrected: $correctedSentence" : ""}
-''';
-
+    final prompt = buildPrompt(
+      fluencyScore: fluencyScore,
+      grammarScore: grammarScore,
+      pronunciationScore: pronunciationScore,
+      grammarErrors: grammarErrors,
+      correctedSentence: correctedSentence,
+    );
     try {
-      final response = await _localLlm.generateResponse(
-        '''You are an encouraging English coach.
-Provide 1 sentence of encouragement and 3 short actionable improvement tips.
-
-$performanceData
-
-Rules:
-- Max 100 words.
-- Be warm and specific.
-''',
-      );
-
+      final response = await _localLlm.generateResponse(prompt);
       if (response.isNotEmpty && response.length > 20) {
         debugPrint('Feedback: local generation complete');
         return response.trim();
@@ -44,8 +53,6 @@ Rules:
     } catch (e) {
       debugPrint('Feedback: local generation error — $e');
     }
-
-    // Deterministic template fallback
     return _generateTemplateFeedback(fluencyScore, grammarScore, pronunciationScore);
   }
 

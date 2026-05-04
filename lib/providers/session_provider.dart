@@ -12,6 +12,16 @@ import '../services/local_llm_service.dart';
 import '../services/local_stt_service.dart';
 import '../core/constants/app_constants.dart';
 
+/// Tracks which phase of the AI pipeline is currently running.
+/// The UI uses this to show progressive results rather than a blank spinner.
+enum PipelineStage {
+  idle,
+  transcribing,   // Whisper running
+  analyzing,      // Grammar + pronunciation scoring
+  generating,     // Gemma writing feedback (slowest step)
+  done,
+}
+
 class SessionProvider with ChangeNotifier {
   final DatabaseHelper _dbHelper;
   final AudioService _audioService;
@@ -21,6 +31,15 @@ class SessionProvider with ChangeNotifier {
   bool _isRecording = false;
   bool _isProcessing = false;
   double _recordingDuration = 0.0;
+
+  /// Transcript available after STT — before Gemma finishes.
+  String? earlyTranscript;
+
+  /// Stream of feedback tokens — populated during Gemma generation.
+  Stream<String>? feedbackStream;
+
+  /// Which pipeline stage is currently active.
+  PipelineStage pipelineStage = PipelineStage.idle;
 
   SessionProvider(this._dbHelper, this._audioService, this._firebaseService);
 
@@ -112,38 +131,100 @@ class SessionProvider with ChangeNotifier {
     if (_currentSession == null) return;
 
     _isProcessing = true;
+    earlyTranscript = null;
+    feedbackStream = null;
+    pipelineStage = PipelineStage.transcribing;
     notifyListeners();
 
     try {
-      // Process recording through AI pipeline
+      final sttService = LocalSttService();
+      final llm = LocalLlmService();
+
+      // ── Step 1: Transcribe ──────────────────────────────────────────────
+      // Whisper runs first. The moment we have text, show it to the user.
+      debugPrint('Provider: Starting STT…');
+      final transcription = await sttService.transcribe(_currentSession!.audioLocalPath!);
+
+      if (transcription.transcript.trim().isEmpty) {
+        throw Exception('No speech detected — please try again.');
+      }
+
+      // Publish transcript immediately so the UI can navigate forward NOW,
+      // before grammar scoring and Gemma have finished.
+      earlyTranscript = transcription.transcript;
+      pipelineStage = PipelineStage.analyzing;
+      notifyListeners(); // ← UI reads this and navigates to FeedbackScreen
+
+      // ── Step 2: Grammar + Pronunciation (no LLM) ────────────────────────
+      debugPrint('Provider: Running grammar + pronunciation…');
       final aiPipeline = AIProcessingPipeline();
-      
-      final analysis = await aiPipeline.processRecording(
+      final grammarFuture = aiPipeline.grammarService.analyzeGrammar(transcription.transcript);
+      final pronunciationFuture = aiPipeline.pronunciationService.assessPronunciation(
         audioPath: _currentSession!.audioLocalPath!,
-        promptText: _currentSession!.promptText ?? '',
+        referenceText: _currentSession!.promptText ?? '',
       );
-      
-      // Create scores from AI analysis
+      final grammar = await grammarFuture;
+      final pronunciation = await pronunciationFuture;
+
+      final overallScore = aiPipeline.calcOverallScore(
+        fluency: pronunciation.fluencyScore,
+        grammar: grammar.score,
+        pronunciation: pronunciation.overallScore,
+      );
+      final ieltsBand = aiPipeline.calcBand(overallScore);
+      final cefr = AIProcessingPipeline.mapToCEFR(overallScore);
+
+      // ── Step 3: Stream Gemma feedback ───────────────────────────────────
+      pipelineStage = PipelineStage.generating;
+      notifyListeners();
+
+      debugPrint('Provider: Loading Gemma for streamed feedback…');
+      await llm.loadModel();
+
+      final errorTypes = grammar.errors.map((e) => e.type).toSet().toList();
+      final feedbackPrompt = aiPipeline.feedbackService.buildPrompt(
+        fluencyScore: pronunciation.fluencyScore,
+        grammarScore: grammar.score,
+        pronunciationScore: pronunciation.overallScore,
+        grammarErrors: errorTypes,
+        correctedSentence: grammar.correctedText,
+      );
+
+      // generateResponseStream returns a stream of tokens — UI renders each one.
+      feedbackStream = await llm.generateResponseStream(feedbackPrompt);
+      notifyListeners(); // FeedbackScreen subscribes to feedbackStream
+
+      // Collect full feedback string while stream is consumed by the UI.
+      final feedbackBuffer = StringBuffer();
+      await for (final token in feedbackStream!) {
+        feedbackBuffer.write(token);
+      }
+      final fullFeedback = feedbackBuffer.toString().trim();
+
+      await llm.unloadModel();
+
+      // ── Step 4: Persist complete session ────────────────────────────────
+      pipelineStage = PipelineStage.done;
+
       final scores = SessionScores(
-        fluency: analysis.fluencyScore,
-        grammar: analysis.grammarScore,
-        pronunciation: analysis.pronunciationScore,
-        composite: analysis.overallScore,
-        estimatedIELTSBand: analysis.ieltsBand,
-        cefrLevel: analysis.cefrLevel,
+        fluency: pronunciation.fluencyScore,
+        grammar: grammar.score,
+        pronunciation: pronunciation.overallScore,
+        composite: overallScore,
+        estimatedIELTSBand: ieltsBand,
+        cefrLevel: cefr,
       );
-      
+
       _currentSession = _currentSession!.copyWith(
         status: SessionStatus.completed,
         completedAt: DateTime.now(),
         scores: scores,
-        transcript: analysis.transcription,
-        feedback: analysis.feedback,
-        wordResults: analysis.wordResults,
-        synced: false, // Mark as not synced initially
+        transcript: transcription.transcript,
+        feedback: fullFeedback,
+        wordResults: transcription.words,
+        synced: false,
       );
-      
-      // Save to local database first
+
       await _dbHelper.updateSession(_currentSession!.sessionId, _currentSession!.toDbMap());
 
       // Award XP and update gamification stats
@@ -152,13 +233,11 @@ class SessionProvider with ChangeNotifier {
         if (profile != null) {
           await GamificationService().completeSession(
             userId: _currentSession!.userId,
-            compositeScore: analysis.overallScore,
-            cefrLevel: analysis.cefrLevel,
+            compositeScore: overallScore,
+            cefrLevel: cefr,
             currentStreak: profile['current_streak'] as int? ?? 0,
             totalSessions: profile['total_sessions'] as int? ?? 0,
           );
-          
-          // Sync updated local profile to Firestore
           final updatedLocal = await _dbHelper.getUserProfile(_currentSession!.userId);
           if (updatedLocal != null && authProvider.currentUser != null) {
             final updatedCloud = authProvider.currentUser!.copyWith(
@@ -174,22 +253,19 @@ class SessionProvider with ChangeNotifier {
       } catch (e) {
         debugPrint('Gamification update failed: $e');
       }
-      
-      // Try to sync to Firebase
+
       try {
         await _syncToFirebase();
       } catch (e) {
         debugPrint('Firebase sync failed, will retry later: $e');
-        // Don't fail the whole operation if Firebase sync fails
       }
-      
+
       _isProcessing = false;
       notifyListeners();
-
-      // Refresh AuthProvider to update Home Screen stats
       await authProvider.refreshUserProfile();
     } catch (e) {
       _isProcessing = false;
+      pipelineStage = PipelineStage.idle;
       notifyListeners();
       throw Exception('Failed to process recording: $e');
     }

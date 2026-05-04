@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/session_provider.dart';
+import '../../providers/session_provider.dart' show SessionProvider, PipelineStage;
 import '../../services/local_llm_service.dart';
 import '../../widgets/common/glass_card.dart'; // We use Gamified GlassCard now
 import '../../widgets/common/animated_button.dart';
@@ -523,23 +523,58 @@ class _RecordingScreenState extends State<RecordingScreen>
   Future<void> _submitRecording(
       SessionProvider sessionProvider, AuthProvider authProvider) async {
     try {
-      await sessionProvider.submitRecording(authProvider);
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => FeedbackScreen(
-              session: sessionProvider.currentSession!,
-              isBaseline: widget.isBaseline,
-            ),
-          ),
-        );
-      }
+      // Kick off the pipeline — it runs in the background.
+      // We listen for pipelineStage changes and navigate forward
+      // the moment the transcript is ready (before Gemma finishes).
+      _startPipelineAndNavigate(sessionProvider, authProvider);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to submit: $e')),
         );
       }
+    }
+  }
+
+  void _startPipelineAndNavigate(
+      SessionProvider sessionProvider, AuthProvider authProvider) {
+    // Start the async pipeline — don't await here so we can react to
+    // intermediate state changes immediately.
+    sessionProvider.submitRecording(authProvider).catchError((e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    });
+
+    // Poll for transcript availability, then navigate forward.
+    // The pipeline notifies listeners when earlyTranscript is set.
+    _waitForTranscriptThenNavigate(sessionProvider, authProvider);
+  }
+
+  Future<void> _waitForTranscriptThenNavigate(
+      SessionProvider sessionProvider, AuthProvider authProvider) async {
+    // Wait until STT finishes (stage transitions to 'analyzing' or beyond).
+    while (mounted &&
+        sessionProvider.pipelineStage == PipelineStage.transcribing) {
+      await Future.delayed(const Duration(milliseconds: 150));
+    }
+
+    if (!mounted) return;
+
+    if (sessionProvider.earlyTranscript != null &&
+        sessionProvider.currentSession != null) {
+      // Navigate immediately — FeedbackScreen will stream the rest.
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => FeedbackScreen(
+            session: sessionProvider.currentSession!,
+            isBaseline: widget.isBaseline,
+            feedbackStream: sessionProvider.feedbackStream,
+          ),
+        ),
+      );
     }
   }
 }
