@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
@@ -36,6 +37,15 @@ class LocalLlmService {
   InferenceModel? _model;
   bool _isInitialized = false;
   bool _isLoaded = false;
+
+  /// True when model is loaded and ready for inference.
+  bool get isLoaded => _isLoaded;
+
+  /// In-flight load operation — prevents concurrent double-init.
+  /// If warmLoad() fires loadModel() in the background and the pipeline
+  /// calls loadModel() again before it completes, the second call simply
+  /// awaits the same Completer instead of creating a second model instance.
+  Completer<void>? _loadCompleter;
 
   // --------------------------------------------------------------------------
   // Model installation status
@@ -91,10 +101,20 @@ class LocalLlmService {
   }
 
   /// Loads the Gemma model into GPU/CPU memory.
+  /// Safe to call concurrently — subsequent calls block on the first load.
   Future<void> loadModel() async {
     if (_isLoaded) return;
-    await init();
+
+    // If a load is already in flight (e.g. from warmLoad), await it instead
+    // of starting a second one — prevents double-init and RAM waste.
+    if (_loadCompleter != null) {
+      debugPrint('LLM: Load already in progress — waiting…');
+      return _loadCompleter!.future;
+    }
+
+    _loadCompleter = Completer<void>();
     try {
+      await init();
       debugPrint('LLM: Loading Gemma 3 1B into memory…');
       _model = await FlutterGemmaPlugin.instance.createModel(
         modelType: ModelType.gemmaIt,
@@ -103,9 +123,13 @@ class LocalLlmService {
       );
       _isLoaded = true;
       debugPrint('LLM: Model loaded and ready.');
+      _loadCompleter!.complete();
     } catch (e) {
       debugPrint('LLM loadModel error: $e');
+      _loadCompleter!.completeError(e);
       rethrow;
+    } finally {
+      _loadCompleter = null;
     }
   }
 

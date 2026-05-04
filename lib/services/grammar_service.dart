@@ -39,12 +39,16 @@ class GrammarResult {
   final String correctedText;
   final List<GrammarError> errors;
   final String summary;
+  /// True when the offline heuristic fallback was used instead of LanguageTool.
+  /// Callers can use this to show an 'Offline — basic grammar check' indicator.
+  final bool usedHeuristics;
 
   GrammarResult({
     required this.score,
     required this.correctedText,
     required this.errors,
     required this.summary,
+    this.usedHeuristics = false,
   });
 }
 
@@ -73,6 +77,7 @@ class GrammarAnalysisService {
         correctedText: '',
         errors: [],
         summary: 'No text to analyse.',
+        usedHeuristics: true,
       );
     }
 
@@ -149,6 +154,7 @@ class GrammarAnalysisService {
       correctedText: corrected,
       errors: errors,
       summary: summary,
+      usedHeuristics: false,
     );
   }
 
@@ -205,6 +211,7 @@ class GrammarAnalysisService {
       summary: errors.isEmpty
           ? 'Basic offline assessment — no obvious errors detected.'
           : '${errors.length} common error${errors.length == 1 ? '' : 's'} detected.',
+      usedHeuristics: true,
     );
   }
 }
