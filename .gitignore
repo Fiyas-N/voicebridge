@@ -42,6 +42,11 @@ gradle_error.log
 voices.json
 voices_v2.json
 
-# Large model assets (downloaded at runtime, not committed)
+# Large model assets (downloaded at runtime — NEVER commit these, >100MB limit)
 assets/models/llm/
+assets/models/kokoro/
 assets/models/whisper/ggml*.bin
+*.onnx
+*.task
+*.bin
+*.litertlm
