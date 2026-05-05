@@ -41,9 +41,6 @@ class SessionProvider with ChangeNotifier {
   /// Which pipeline stage is currently active.
   PipelineStage pipelineStage = PipelineStage.idle;
 
-  /// True when grammar was checked with the offline heuristics (LanguageTool
-  /// was unreachable). FeedbackScreen shows a subtle indicator to the user.
-  bool grammarOfflineMode = false;
 
   SessionProvider(this._dbHelper, this._audioService, this._firebaseService);
 
@@ -157,7 +154,6 @@ class SessionProvider with ChangeNotifier {
       // before grammar scoring and Gemma have finished.
       earlyTranscript = transcription.transcript;
       pipelineStage = PipelineStage.analyzing;
-      grammarOfflineMode = false; // reset
       notifyListeners(); // ← UI reads this and navigates to FeedbackScreen
 
       // ── Step 2: Grammar + Pronunciation (no LLM) ────────────────────────
@@ -171,11 +167,6 @@ class SessionProvider with ChangeNotifier {
       final grammar = await grammarFuture;
       final pronunciation = await pronunciationFuture;
 
-      // Surface offline grammar mode so the UI can inform the user.
-      if (grammar.usedHeuristics) {
-        grammarOfflineMode = true;
-        notifyListeners();
-      }
 
       final overallScore = aiPipeline.calcOverallScore(
         fluency: pronunciation.fluencyScore,

@@ -45,9 +45,6 @@ dependencies:
   # On-Device AI (STT)
   whisper_flutter_new: ^1.0.1
 
-  # Grammar checking (online when available, heuristic fallback when offline)
-  language_tool: ^2.2.0
-
   # On-Device LLM (Gemma 3 via MediaPipe / LiteRT)
   flutter_gemma: ^0.9.0
 

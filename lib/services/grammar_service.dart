@@ -1,37 +1,26 @@
 import 'package:flutter/foundation.dart';
-import 'package:language_tool/language_tool.dart';
 
-/// Grammar error model — maps from both LanguageTool and heuristic sources.
+// ── Public data models (interface unchanged — callers need no edits) ──────────
+
 class GrammarError {
   final String type;
   final String original;
   final String correction;
   final String explanation;
 
-  GrammarError({
+  const GrammarError({
     required this.type,
     required this.original,
     required this.correction,
     required this.explanation,
   });
 
-  factory GrammarError.fromJson(Map<String, dynamic> json) {
-    return GrammarError(
-      type: json['type'] ?? 'grammar',
-      original: json['original'] ?? '',
-      correction: json['correction'] ?? '',
-      explanation: json['explanation'] ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'type': type,
-      'original': original,
-      'correction': correction,
-      'explanation': explanation,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'original': original,
+        'correction': correction,
+        'explanation': explanation,
+      };
 }
 
 class GrammarResult {
@@ -39,40 +28,223 @@ class GrammarResult {
   final String correctedText;
   final List<GrammarError> errors;
   final String summary;
-  /// True when the offline heuristic fallback was used instead of LanguageTool.
-  /// Callers can use this to show an 'Offline — basic grammar check' indicator.
+
+  /// Always true — grammar is now 100% offline rule-based.
   final bool usedHeuristics;
 
-  GrammarResult({
+  const GrammarResult({
     required this.score,
     required this.correctedText,
     required this.errors,
     required this.summary,
-    this.usedHeuristics = false,
+    this.usedHeuristics = true,
   });
 }
 
-/// Grammar Analysis Service
+// ── Internal rule definition ──────────────────────────────────────────────────
+
+class _Rule {
+  final RegExp pattern;
+  final String type;
+
+  /// Suggestion string. Use \$1, \$2 for capture groups if pattern has them.
+  final String suggestion;
+  final String explanation;
+
+  const _Rule(this.pattern, this.type, this.suggestion, this.explanation);
+}
+
+// ── Grammar Analysis Service — 100% offline, zero network dependencies ────────
+
+/// Analyses spoken English text against a curated set of grammar rules.
 ///
-/// Strategy (fastest first, graceful degradation):
-///   1. LanguageTool API  — instant, no LLM needed. Requires internet.
-///   2. Heuristic fallback — word-count + known-error rules. Always offline.
+/// Rules cover:
+///   • Subject-verb agreement
+///   • Tense errors (double-past, wrong participles)
+///   • Double comparatives / superlatives
+///   • Double negatives
+///   • Pronoun case errors
+///   • Stative verb misuse (Indian English / ESL)
+///   • Preposition misuse
+///   • Common spoken collocations
 ///
-/// Gemma 3 is NO LONGER used for grammar — it is now reserved exclusively
-/// for Step 6 (personalised coaching feedback), halving LLM pressure.
+/// No internet required. Instant. No model loading.
 class GrammarAnalysisService {
-  LanguageTool? _tool;
+  static final List<_Rule> _rules = [
+    // ── Subject-verb agreement ────────────────────────────────────────────────
+    _Rule(RegExp(r'\bI are\b', caseSensitive: false), 'agreement',
+        'I am', '"I" takes "am", not "are"'),
+    _Rule(RegExp(r'\bI were\b', caseSensitive: false), 'agreement',
+        'I was', '"I" takes "was" in simple past, not "were" (except subjunctive)'),
+    _Rule(RegExp(r'\bI goes\b', caseSensitive: false), 'agreement',
+        'I go', '"I" takes "go", not "goes"'),
+    _Rule(RegExp(r'\bhe go\b(?!es)', caseSensitive: false), 'agreement',
+        'he goes', 'Third-person singular "he" requires "goes"'),
+    _Rule(RegExp(r'\bshe go\b(?!es)', caseSensitive: false), 'agreement',
+        'she goes', 'Third-person singular "she" requires "goes"'),
+    _Rule(RegExp(r'\bit go\b(?!es)', caseSensitive: false), 'agreement',
+        'it goes', 'Third-person singular "it" requires "goes"'),
+    _Rule(RegExp(r'\bhe are\b', caseSensitive: false), 'agreement',
+        'he is', '"He" requires "is", not "are"'),
+    _Rule(RegExp(r'\bshe are\b', caseSensitive: false), 'agreement',
+        'she is', '"She" requires "is", not "are"'),
+    _Rule(RegExp(r'\bit are\b', caseSensitive: false), 'agreement',
+        'it is', '"It" requires "is", not "are"'),
+    _Rule(RegExp(r'\bthey was\b', caseSensitive: false), 'agreement',
+        'they were', '"They" requires "were", not "was"'),
+    _Rule(RegExp(r'\bwe was\b', caseSensitive: false), 'agreement',
+        'we were', '"We" requires "were", not "was"'),
+    _Rule(RegExp(r'\byou was\b', caseSensitive: false), 'agreement',
+        'you were', '"You" requires "were", not "was"'),
+    _Rule(RegExp(r"\bhe don't\b", caseSensitive: false), 'agreement',
+        "he doesn't", 'Third-person singular requires "doesn\'t"'),
+    _Rule(RegExp(r"\bshe don't\b", caseSensitive: false), 'agreement',
+        "she doesn't", 'Third-person singular requires "doesn\'t"'),
+    _Rule(RegExp(r"\bit don't\b", caseSensitive: false), 'agreement',
+        "it doesn't", 'Third-person singular requires "doesn\'t"'),
+    _Rule(RegExp(r"\bhe have\b", caseSensitive: false), 'agreement',
+        'he has', 'Third-person singular "he" requires "has"'),
+    _Rule(RegExp(r"\bshe have\b", caseSensitive: false), 'agreement',
+        'she has', 'Third-person singular "she" requires "has"'),
+    _Rule(RegExp(r"\bit have\b", caseSensitive: false), 'agreement',
+        'it has', 'Third-person singular "it" requires "has"'),
 
-  LanguageTool get _langTool {
-    _tool ??= LanguageTool();
-    return _tool!;
-  }
+    // ── Tense errors ──────────────────────────────────────────────────────────
+    _Rule(RegExp(r'\bdid went\b', caseSensitive: false), 'tense',
+        'went', '"Did" already marks past tense — use base form or just "went"'),
+    _Rule(RegExp(r'\bdid came\b', caseSensitive: false), 'tense',
+        'came', 'Use "came" not "did came"'),
+    _Rule(RegExp(r'\bdid saw\b', caseSensitive: false), 'tense',
+        'saw', 'Use "saw" not "did saw"'),
+    _Rule(RegExp(r'\bdid eaten\b', caseSensitive: false), 'tense',
+        'ate', 'Use "ate" not "did eaten"'),
+    _Rule(RegExp(r'\bI have went\b', caseSensitive: false), 'tense',
+        'I have gone', 'Past participle of "go" is "gone", not "went"'),
+    _Rule(RegExp(r'\bI have ate\b', caseSensitive: false), 'tense',
+        'I have eaten', 'Past participle of "eat" is "eaten", not "ate"'),
+    _Rule(RegExp(r'\bI have ran\b', caseSensitive: false), 'tense',
+        'I have run', 'Past participle of "run" is "run", not "ran"'),
+    _Rule(RegExp(r'\bI have saw\b', caseSensitive: false), 'tense',
+        'I have seen', 'Past participle of "see" is "seen", not "saw"'),
+    _Rule(RegExp(r'\bI have came\b', caseSensitive: false), 'tense',
+        'I have come', 'Past participle of "come" is "come", not "came"'),
+    _Rule(RegExp(r'\bI have drove\b', caseSensitive: false), 'tense',
+        'I have driven', 'Past participle of "drive" is "driven"'),
+    _Rule(RegExp(r'\bI have broke\b', caseSensitive: false), 'tense',
+        'I have broken', 'Past participle of "break" is "broken"'),
+    _Rule(RegExp(r'\bI have spoke\b', caseSensitive: false), 'tense',
+        'I have spoken', 'Past participle of "speak" is "spoken"'),
+    _Rule(RegExp(r'\bI seen\b', caseSensitive: false), 'tense',
+        'I saw / I have seen', 'Missing auxiliary "have", or use simple past "saw"'),
+    _Rule(RegExp(r'\bI done\b', caseSensitive: false), 'tense',
+        'I did / I have done', 'Use "I did" (simple past) or "I have done" (present perfect)'),
+    _Rule(RegExp(r'\bI been\b', caseSensitive: false), 'tense',
+        'I have been', 'Missing auxiliary "have": use "I have been"'),
 
-  /// Analyse grammar. Returns fast if internet is available (LanguageTool),
-  /// or falls back to heuristics if offline.
+    // ── Double comparatives / superlatives ────────────────────────────────────
+    _Rule(RegExp(r'\bmore better\b', caseSensitive: false), 'comparative',
+        'better', '"Better" is already comparative — don\'t add "more"'),
+    _Rule(RegExp(r'\bmore faster\b', caseSensitive: false), 'comparative',
+        'faster', '"Faster" is already comparative'),
+    _Rule(RegExp(r'\bmore taller\b', caseSensitive: false), 'comparative',
+        'taller', '"Taller" is already comparative'),
+    _Rule(RegExp(r'\bmore stronger\b', caseSensitive: false), 'comparative',
+        'stronger', '"Stronger" is already comparative'),
+    _Rule(RegExp(r'\bmore smarter\b', caseSensitive: false), 'comparative',
+        'smarter', '"Smarter" is already comparative'),
+    _Rule(RegExp(r'\bmore harder\b', caseSensitive: false), 'comparative',
+        'harder', '"Harder" is already comparative'),
+    _Rule(RegExp(r'\bmost tallest\b', caseSensitive: false), 'comparative',
+        'tallest', '"Tallest" is already superlative — don\'t add "most"'),
+    _Rule(RegExp(r'\bmost best\b', caseSensitive: false), 'comparative',
+        'best', '"Best" is already superlative'),
+    _Rule(RegExp(r'\bmost worst\b', caseSensitive: false), 'comparative',
+        'worst', '"Worst" is already superlative'),
+
+    // ── Double negatives ──────────────────────────────────────────────────────
+    _Rule(RegExp(r"\bdon't have no\b", caseSensitive: false), 'negation',
+        "don't have any", 'Double negative — use "don\'t have any"'),
+    _Rule(RegExp(r"\bcan't do nothing\b", caseSensitive: false), 'negation',
+        "can't do anything", 'Double negative — use "can\'t do anything"'),
+    _Rule(RegExp(r"\bdidn't do nothing\b", caseSensitive: false), 'negation',
+        "didn't do anything", 'Double negative — use "didn\'t do anything"'),
+    _Rule(RegExp(r"\bnever did nothing\b", caseSensitive: false), 'negation',
+        'never did anything', 'Double negative — use "never did anything"'),
+    _Rule(RegExp(r"\bwon't never\b", caseSensitive: false), 'negation',
+        "will never", 'Double negative — use "will never"'),
+
+    // ── Pronoun case ──────────────────────────────────────────────────────────
+    _Rule(RegExp(r'\bme and him\b', caseSensitive: false), 'pronoun',
+        'he and I', 'Use subject pronouns in subject position: "he and I"'),
+    _Rule(RegExp(r'\bme and her\b', caseSensitive: false), 'pronoun',
+        'she and I', 'Use subject pronouns in subject position: "she and I"'),
+    _Rule(RegExp(r'\bhim and me\b', caseSensitive: false), 'pronoun',
+        'he and I', 'Use subject pronouns: "he and I"'),
+    _Rule(RegExp(r'\bher and me\b', caseSensitive: false), 'pronoun',
+        'she and I', 'Use subject pronouns: "she and I"'),
+    _Rule(RegExp(r'\bme and my friend\b', caseSensitive: false), 'pronoun',
+        'my friend and I', 'Place "I" last in compound subjects'),
+    _Rule(RegExp(r'\bme and \w+\b(?= (?:went|are|is|was|were|have|had|do|did|can|will|would|should))',
+        caseSensitive: false), 'pronoun',
+        'I and ...', '"Me" cannot be a subject — use "I"'),
+
+    // ── Stative verb misuse (very common in Indian English / ESL) ────────────
+    _Rule(RegExp(r'\bI am having\b', caseSensitive: false), 'stative verb',
+        'I have', '"Have" is stative — use simple present: "I have"'),
+    _Rule(RegExp(r'\bhe is having\b', caseSensitive: false), 'stative verb',
+        'he has', '"Have" is stative — "he has"'),
+    _Rule(RegExp(r'\bshe is having\b', caseSensitive: false), 'stative verb',
+        'she has', '"Have" is stative — "she has"'),
+    _Rule(RegExp(r'\bthey are having\b', caseSensitive: false), 'stative verb',
+        'they have', '"Have" is stative — "they have"'),
+    _Rule(RegExp(r'\bI am knowing\b', caseSensitive: false), 'stative verb',
+        'I know', '"Know" is stative — "I know"'),
+    _Rule(RegExp(r'\bI am understanding\b', caseSensitive: false), 'stative verb',
+        'I understand', '"Understand" is stative — "I understand"'),
+    _Rule(RegExp(r'\bI am wanting\b', caseSensitive: false), 'stative verb',
+        'I want', '"Want" is stative — "I want"'),
+    _Rule(RegExp(r'\bI am needing\b', caseSensitive: false), 'stative verb',
+        'I need', '"Need" is stative — "I need"'),
+    _Rule(RegExp(r'\bI am believing\b', caseSensitive: false), 'stative verb',
+        'I believe', '"Believe" is stative — "I believe"'),
+
+    // ── Preposition / duration errors ─────────────────────────────────────────
+    _Rule(RegExp(r'\bsince \d+ years\b', caseSensitive: false), 'preposition',
+        'for ... years', 'Use "for" with durations, "since" with a point in time'),
+    _Rule(RegExp(r'\bsince \d+ months\b', caseSensitive: false), 'preposition',
+        'for ... months', 'Use "for" with durations'),
+    _Rule(RegExp(r'\bsince \d+ days\b', caseSensitive: false), 'preposition',
+        'for ... days', 'Use "for" with durations'),
+
+    // ── Common spoken collocations ─────────────────────────────────────────────
+    _Rule(RegExp(r'\bvery much good\b', caseSensitive: false), 'word choice',
+        'very good', '"Very much good" is non-standard — use "very good"'),
+    _Rule(RegExp(r'\bdoing the needful\b', caseSensitive: false), 'word choice',
+        'doing what is necessary', '"Doing the needful" is not standard outside South Asia'),
+    _Rule(RegExp(r'\bprepone\b', caseSensitive: false), 'word choice',
+        'reschedule to an earlier time', '"Prepone" is not standard English'),
+    _Rule(RegExp(r'\bI am going to went\b', caseSensitive: false), 'tense',
+        'I am going to go', 'Mixed tenses — "going to" takes base form'),
+    _Rule(RegExp(r'\byesterday I have\b', caseSensitive: false), 'tense',
+        'yesterday I', '"Yesterday" signals simple past, not present perfect'),
+  ];
+
+  // ── Score weights per error type ───────────────────────────────────────────
+  static const Map<String, double> _penalty = {
+    'agreement': 8.0,
+    'tense': 8.0,
+    'negation': 6.0,
+    'pronoun': 5.0,
+    'comparative': 5.0,
+    'stative verb': 4.0,
+    'preposition': 4.0,
+    'word choice': 3.0,
+  };
+
+  /// Analyse [text] against the offline rule set and return a [GrammarResult].
   Future<GrammarResult> analyzeGrammar(String text) async {
     if (text.trim().isEmpty) {
-      return GrammarResult(
+      return const GrammarResult(
         score: 0,
         correctedText: '',
         errors: [],
@@ -81,136 +253,67 @@ class GrammarAnalysisService {
       );
     }
 
-    // ── Attempt 1: LanguageTool API (fast, accurate, no LLM) ──────────────
-    try {
-      debugPrint('Grammar: checking via LanguageTool API…');
-      final mistakes = await _langTool.check(text);
-      debugPrint('Grammar: LanguageTool returned ${mistakes.length} issues.');
-      return _fromLanguageTool(text, mistakes);
-    } catch (e) {
-      debugPrint('Grammar: LanguageTool unavailable ($e) — using heuristics.');
-    }
+    // ── Match all rules, track spans to avoid overlapping highlights ──────────
+    final List<({int start, int end, GrammarError error})> hits = [];
 
-    // ── Attempt 2: Offline heuristic fallback ────────────────────────────
-    return _offlineFallback(text);
-  }
+    for (final rule in _rules) {
+      for (final match in rule.pattern.allMatches(text)) {
+        // Skip if this span overlaps an already-matched range
+        final overlaps = hits.any(
+          (h) => h.start < match.end && h.end > match.start,
+        );
+        if (overlaps) continue;
 
-  // ---------------------------------------------------------------------------
-  // LanguageTool result → GrammarResult
-  // ---------------------------------------------------------------------------
+        final original = match.group(0) ?? '';
 
-  GrammarResult _fromLanguageTool(String text, List<WritingMistake> mistakes) {
-    // Convert LanguageTool mistakes to GrammarError list
-    final errors = <GrammarError>[];
-    String corrected = text;
-    int offset = 0; // track cumulative index drift from replacements
+        // Expand capture-group references in suggestion ($1, $2…)
+        String correction = rule.suggestion;
+        for (int g = 1; g <= match.groupCount; g++) {
+          correction = correction.replaceAll('\$$g', match.group(g) ?? '');
+        }
 
-    for (final m in mistakes) {
-      final original = text.substring(
-        m.offset.clamp(0, text.length),
-        (m.offset + m.length).clamp(0, text.length),
-      );
-      final suggestion = m.replacements.isNotEmpty ? m.replacements.first : original;
-
-      errors.add(GrammarError(
-        type: _categoryLabel(m.issueType),
-        original: original,
-        correction: suggestion,
-        explanation: m.message,
-      ));
-
-      // Apply correction to produce corrected text
-      final start = (m.offset + offset).clamp(0, corrected.length);
-      final end = (m.offset + m.length + offset).clamp(0, corrected.length);
-      corrected = corrected.replaceRange(start, end, suggestion);
-      offset += suggestion.length - m.length;
-    }
-
-    // Score: start at 100, deduct per error weighted by severity
-    double score = 100.0;
-    for (final m in mistakes) {
-      switch (_categoryLabel(m.issueType)) {
-        case 'Grammar':
-          score -= 8;
-          break;
-        case 'Spelling':
-          score -= 5;
-          break;
-        case 'Punctuation':
-          score -= 3;
-          break;
-        default:
-          score -= 4;
+        hits.add((
+          start: match.start,
+          end: match.end,
+          error: GrammarError(
+            type: rule.type,
+            original: original,
+            correction: correction,
+            explanation: rule.explanation,
+          ),
+        ));
       }
+    }
+
+    // ── Build corrected text (apply replacements end → start) ─────────────────
+    final sortedHits = hits.toList()
+      ..sort((a, b) => b.start.compareTo(a.start));
+
+    String corrected = text;
+    for (final h in sortedHits) {
+      corrected = corrected.replaceRange(h.start, h.end, h.error.correction);
+    }
+
+    // ── Score ─────────────────────────────────────────────────────────────────
+    double score = 100.0;
+    for (final h in hits) {
+      score -= _penalty[h.error.type] ?? 4.0;
     }
     score = score.clamp(30.0, 100.0);
 
-    final summary = mistakes.isEmpty
-        ? 'No grammar issues found — great writing!'
-        : '${mistakes.length} issue${mistakes.length == 1 ? '' : 's'} found.';
+    final errors = hits.map((h) => h.error).toList();
+    final summary = errors.isEmpty
+        ? 'No grammar issues detected — great speaking!'
+        : '${errors.length} issue${errors.length == 1 ? '' : 's'} found.';
+
+    debugPrint(
+        'Grammar: ${errors.length} issue(s) — score ${score.toStringAsFixed(0)} (offline rules).');
 
     return GrammarResult(
       score: score,
       correctedText: corrected,
       errors: errors,
       summary: summary,
-      usedHeuristics: false,
-    );
-  }
-
-  String _categoryLabel(String? issueType) {
-    if (issueType == null) return 'Grammar';
-    final t = issueType.toLowerCase();
-    if (t.contains('spell')) return 'Spelling';
-    if (t.contains('punct')) return 'Punctuation';
-    if (t.contains('style')) return 'Style';
-    return 'Grammar';
-  }
-
-  // ---------------------------------------------------------------------------
-  // Offline heuristic fallback
-  // ---------------------------------------------------------------------------
-
-  /// Simple rule-based fallback used when LanguageTool API is unreachable.
-  GrammarResult _offlineFallback(String text) {
-    final words = text.trim().split(RegExp(r'\s+'));
-    double score = words.length > 3 ? 72.0 : 65.0;
-    final errors = <GrammarError>[];
-    final lower = text.toLowerCase();
-
-    // Map of known common spoken errors → correction + explanation
-    const knownErrors = <String, (String, String, String)>{
-      'i am going to went': ('tense', 'going to go', 'Mixed "going to" with past tense "went"'),
-      "he don't": ('agreement', "he doesn't", 'Third-person singular requires "doesn\'t"'),
-      "she don't": ('agreement', "she doesn't", 'Third-person singular requires "doesn\'t"'),
-      'they was': ('agreement', 'they were', '"They" requires "were", not "was"'),
-      'we was': ('agreement', 'we were', '"We" requires "were", not "was"'),
-      'you is': ('agreement', 'you are', '"You" requires "are", not "is"'),
-      'i seen': ('tense', 'I saw / I have seen', 'Missing auxiliary "have" or wrong tense'),
-      'i done': ('tense', 'I did / I have done', 'Missing auxiliary "have" or wrong tense'),
-      'me and him': ('pronoun', 'he and I', 'Use subject pronouns in subject position'),
-    };
-
-    for (final entry in knownErrors.entries) {
-      if (lower.contains(entry.key)) {
-        final val = entry.value;
-        score -= 8;
-        errors.add(GrammarError(
-          type: val.$1,
-          original: entry.key,
-          correction: val.$2,
-          explanation: val.$3,
-        ));
-      }
-    }
-
-    return GrammarResult(
-      score: score.clamp(40.0, 90.0),
-      correctedText: '',
-      errors: errors,
-      summary: errors.isEmpty
-          ? 'Basic offline assessment — no obvious errors detected.'
-          : '${errors.length} common error${errors.length == 1 ? '' : 's'} detected.',
       usedHeuristics: true,
     );
   }

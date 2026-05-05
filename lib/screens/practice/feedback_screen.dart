@@ -5,7 +5,6 @@ import '../../core/utils/validators.dart';
 import '../../data/models/session.dart';
 import '../../data/models/user_profile.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/session_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/common/glass_card.dart';
@@ -312,46 +311,6 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                           ),
                         ),
                         const SizedBox(height: 28),
-
-                        // ── Offline grammar indicator ─────────────────────
-                        Consumer<SessionProvider>(
-                          builder: (_, sp, __) {
-                            if (!sp.grammarOfflineMode) return const SizedBox.shrink();
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF3CD),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: const Color(0xFFFFCC02),
-                                      width: 1.5),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.wifi_off_rounded,
-                                        size: 16,
-                                        color: Color(0xFF856404)),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Offline — basic grammar check only. '
-                                        'Connect to the internet for accurate analysis.',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF856404),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
 
                         // ── AI Coaching (streaming or static) ────────────────
                         if (widget.feedbackStream != null ||
