@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
@@ -6,7 +8,6 @@ import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/session_provider.dart' show SessionProvider, PipelineStage;
 import '../../services/local_llm_service.dart';
-import '../../widgets/common/glass_card.dart'; // We use Gamified GlassCard now
 import '../../widgets/common/animated_button.dart';
 import 'feedback_screen.dart';
 
@@ -30,6 +31,7 @@ class RecordingScreen extends StatefulWidget {
 class _RecordingScreenState extends State<RecordingScreen>
     with TickerProviderStateMixin {
   bool _showReview = false;
+  bool _isSubmitting = false;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -134,24 +136,33 @@ class _RecordingScreenState extends State<RecordingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                GlassCard(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.chat_bubble_outline,
-                        size: 48,
-                        color: AppColors.secondary,
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        widget.prompt.text,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
+                Neumorphic(
+                  style: NeumorphicStyle(
+                    shape: NeumorphicShape.flat,
+                    boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(20)),
+                    depth: 6,
+                    intensity: 0.65,
+                    color: AppColors.backgroundOffWhite,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 48,
+                          color: AppColors.secondary,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                        const SizedBox(height: 24),
+                        Text(
+                          widget.prompt.text,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -160,40 +171,47 @@ class _RecordingScreenState extends State<RecordingScreen>
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                GlassCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildTip('Speak for 30-60 seconds'),
-                      const SizedBox(height: 12),
-                      _buildTip('Speak naturally and clearly'),
-                      const SizedBox(height: 12),
-                      _buildTip('Don\'t worry about mistakes'),
-                      const SizedBox(height: 12),
-                      _buildTip('Find a quiet environment'),
-                    ],
+                Neumorphic(
+                  style: NeumorphicStyle(
+                    shape: NeumorphicShape.flat,
+                    boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(20)),
+                    depth: 4,
+                    intensity: 0.6,
+                    color: AppColors.backgroundOffWhite,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildTip('Speak for 30-60 seconds'),
+                        const SizedBox(height: 12),
+                        _buildTip('Speak naturally and clearly'),
+                        const SizedBox(height: 12),
+                        _buildTip('Don\'t worry about mistakes'),
+                        const SizedBox(height: 12),
+                        _buildTip('Find a quiet environment'),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 60),
                 Center(
                   child: Column(
                     children: [
-                      GestureDetector(
-                        onTap: _startRecording,
-                        child: Container(
+                      NeumorphicButton(
+                        onPressed: _startRecording,
+                        style: const NeumorphicStyle(
+                          shape: NeumorphicShape.convex,
+                          boxShape: NeumorphicBoxShape.circle(),
+                          depth: 10,
+                          intensity: 0.85,
+                          color: AppColors.secondary,
+                        ),
+                        padding: EdgeInsets.zero,
+                        child: const SizedBox(
                           width: 120,
                           height: 120,
-                          decoration: const BoxDecoration(
-                            color: AppColors.secondary,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.borderMedium,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.mic,
                             size: 56,
                             color: Colors.white,
@@ -344,6 +362,11 @@ class _RecordingScreenState extends State<RecordingScreen>
     final session = sessionProvider.currentSession;
     if (session == null) return const SizedBox();
 
+    // Show pipeline-aware loading overlay while processing
+    if (_isSubmitting) {
+      return _buildProcessingOverlay(sessionProvider.pipelineStage);
+    }
+
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -386,33 +409,33 @@ class _RecordingScreenState extends State<RecordingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                GlassCard(
-                  backgroundColor: AppColors.success,
-                  padding: const EdgeInsets.all(40),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.check_circle,
-                        size: 80,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Recording Complete!',
-                        style:
-                            Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Duration: ${Formatters.formatDuration(session.audioDuration ?? 0)}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.9),
-                            ),
-                      ),
-                    ],
+                Neumorphic(
+                  style: NeumorphicStyle(
+                    shape: NeumorphicShape.flat,
+                    boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(20)),
+                    depth: 6,
+                    intensity: 0.7,
+                    color: AppColors.success,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.check_circle, size: 80, color: Colors.white),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Recording Complete!',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Duration: ${Formatters.formatDuration(session.audioDuration ?? 0)}',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.9)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -495,9 +518,18 @@ class _RecordingScreenState extends State<RecordingScreen>
       LocalLlmService().warmLoad();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start recording: $e')),
-        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            elevation: 0,
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.transparent,
+            content: AwesomeSnackbarContent(
+              title: 'Recording Error',
+              message: '$e',
+              contentType: ContentType.failure,
+            ),
+          ));
       }
     }
   }
@@ -510,9 +542,18 @@ class _RecordingScreenState extends State<RecordingScreen>
       setState(() => _showReview = true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            elevation: 0,
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.transparent,
+            content: AwesomeSnackbarContent(
+              title: 'Oops',
+              message: '$e',
+              contentType: ContentType.failure,
+            ),
+          ));
         final sessionProvider =
             Provider.of<SessionProvider>(context, listen: false);
         sessionProvider.clearCurrentSession();
@@ -522,16 +563,24 @@ class _RecordingScreenState extends State<RecordingScreen>
 
   Future<void> _submitRecording(
       SessionProvider sessionProvider, AuthProvider authProvider) async {
+    setState(() => _isSubmitting = true);
     try {
-      // Kick off the pipeline — it runs in the background.
-      // We listen for pipelineStage changes and navigate forward
-      // the moment the transcript is ready (before Gemma finishes).
       _startPipelineAndNavigate(sessionProvider, authProvider);
     } catch (e) {
+      setState(() => _isSubmitting = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit: $e')),
-        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            elevation: 0,
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.transparent,
+            content: AwesomeSnackbarContent(
+              title: 'Submit Failed',
+              message: '$e',
+              contentType: ContentType.failure,
+            ),
+          ));
       }
     }
   }
@@ -541,10 +590,20 @@ class _RecordingScreenState extends State<RecordingScreen>
     // Start the async pipeline — don't await here so we can react to
     // intermediate state changes immediately.
     sessionProvider.submitRecording(authProvider).catchError((e) {
+      setState(() => _isSubmitting = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            elevation: 0,
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.transparent,
+            content: AwesomeSnackbarContent(
+              title: 'Pipeline Error',
+              message: '$e',
+              contentType: ContentType.failure,
+            ),
+          ));
       }
     });
 
@@ -576,5 +635,51 @@ class _RecordingScreenState extends State<RecordingScreen>
         ),
       );
     }
+  }
+
+  // ── Processing overlay — shown while pipeline runs ───────────────────────
+  Widget _buildProcessingOverlay(PipelineStage stage) {
+    final String label;
+    final Widget spinner;
+
+    switch (stage) {
+      case PipelineStage.transcribing:
+        label = 'Transcribing your speech…';
+        spinner = const SpinKitPulse(color: AppColors.primary, size: 64);
+        break;
+      case PipelineStage.analyzing:
+        label = 'Analysing grammar & pronunciation…';
+        spinner = const SpinKitThreeBounce(color: AppColors.secondary, size: 40);
+        break;
+      case PipelineStage.generating:
+        label = 'Generating AI coaching feedback…';
+        spinner = const SpinKitWave(color: AppColors.primary, size: 40, itemCount: 5);
+        break;
+      default:
+        label = 'Processing…';
+        spinner = const SpinKitRing(color: AppColors.primary, size: 60, lineWidth: 4);
+    }
+
+    return Container(
+      color: AppColors.backgroundOffWhite,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            spinner,
+            const SizedBox(height: 32),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
