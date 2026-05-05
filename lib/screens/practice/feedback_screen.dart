@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
@@ -159,9 +160,61 @@ class _FeedbackScreenState extends State<FeedbackScreen>
 
     final scores = widget.session.scores;
     if (scores == null) {
-      return const Scaffold(
+      // Shimmer skeleton while pipeline scores are computing
+      return Scaffold(
         backgroundColor: AppColors.backgroundOffWhite,
-        body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade100,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 16),
+                  // Band hero skeleton
+                  Container(
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Score bar skeletons
+                  for (int i = 0; i < 3; i++) ...[
+                    Container(
+                      height: 14,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    Container(
+                      height: 10,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ],
+                  // Feedback card skeleton
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
     }
 
@@ -300,25 +353,33 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         // ── Score Breakdown ──────────────────────────────
                         const _SectionHeader(text: 'Score Breakdown'),
                         const SizedBox(height: 14),
-                        GlassCard(
-                          blur: 16,
-                          opacity: 0.2,
-                          padding: const EdgeInsets.all(22),
-                          child: Column(
-                            children: List.generate(3, (i) {
-                              final key = _scoreKeys[i];
-                              final score = _getScore(scores, key);
-                              return Padding(
-                                padding: EdgeInsets.only(bottom: i < 2 ? 22 : 0),
-                                child: _AnimatedScoreBar(
-                                  label: _scoreLabels[i],
-                                  icon: _scoreIcons[i],
-                                  score: score,
-                                  color: _scoreColors[i],
-                                  animation: _barAnims[i],
-                                ),
-                              );
-                            }),
+                        Neumorphic(
+                          style: NeumorphicStyle(
+                            shape: NeumorphicShape.flat,
+                            boxShape: NeumorphicBoxShape.roundRect(
+                                BorderRadius.circular(20)),
+                            depth: 5,
+                            intensity: 0.6,
+                            color: AppColors.backgroundOffWhite,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(22),
+                            child: Column(
+                              children: List.generate(3, (i) {
+                                final key = _scoreKeys[i];
+                                final score = _getScore(scores, key);
+                                return Padding(
+                                  padding: EdgeInsets.only(bottom: i < 2 ? 22 : 0),
+                                  child: _AnimatedScoreBar(
+                                    label: _scoreLabels[i],
+                                    icon: _scoreIcons[i],
+                                    score: score,
+                                    color: _scoreColors[i],
+                                    animation: _barAnims[i],
+                                  ),
+                                );
+                              }),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 28),
@@ -346,65 +407,70 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                             ],
                           ),
                           const SizedBox(height: 14),
-                          GlassCard(
-                            padding: const EdgeInsets.all(22),
-                            child: widget.feedbackStream != null
-                                ? StreamBuilder<String>(
-                                    stream: widget.feedbackStream,
-                                    builder: (context, snapshot) {
-                                      // Only write new tokens — not on every rebuild
-                                      if (snapshot.hasData &&
-                                          snapshot.data != _lastWrittenToken) {
-                                        _lastWrittenToken = snapshot.data;
-                                        _streamedFeedback.write(snapshot.data);
-                                      }
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.done) {
-                                        if (!_streamDone) {
-                                          _streamDone = true;
-                                          Future.delayed(
-                                              const Duration(
-                                                  milliseconds: 300),
-                                              () {
-                                            if (mounted) {
-                                              TtsService().speak(
-                                                  _streamedFeedback
-                                                      .toString());
-                                            }
-                                          });
+                          Neumorphic(
+                            style: NeumorphicStyle(
+                              shape: NeumorphicShape.flat,
+                              boxShape: NeumorphicBoxShape.roundRect(
+                                  BorderRadius.circular(20)),
+                              depth: 4,
+                              intensity: 0.55,
+                              color: AppColors.backgroundOffWhite,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(22),
+                              child: widget.feedbackStream != null
+                                  ? StreamBuilder<String>(
+                                      stream: widget.feedbackStream,
+                                      builder: (context, snapshot) {
+                                        if (snapshot.hasData &&
+                                            snapshot.data != _lastWrittenToken) {
+                                          _lastWrittenToken = snapshot.data;
+                                          _streamedFeedback.write(snapshot.data);
                                         }
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.done) {
+                                          if (!_streamDone) {
+                                            _streamDone = true;
+                                            Future.delayed(
+                                                const Duration(milliseconds: 300),
+                                                () {
+                                              if (mounted) {
+                                                TtsService().speak(
+                                                    _streamedFeedback.toString());
+                                              }
+                                            });
+                                          }
+                                          return Text(
+                                            _streamedFeedback.toString(),
+                                            style: const TextStyle(
+                                              color: AppColors.textDark,
+                                              fontSize: 14,
+                                              height: 1.7,
+                                            ),
+                                          );
+                                        }
+                                        final current = _streamedFeedback.toString();
                                         return Text(
-                                          _streamedFeedback.toString(),
+                                          current.isEmpty
+                                              ? 'Generating coaching feedback… ◌'
+                                              : '$current ◌',
                                           style: const TextStyle(
                                             color: AppColors.textDark,
                                             fontSize: 14,
                                             height: 1.7,
                                           ),
                                         );
-                                      }
-                                      // Actively streaming — tokens + cursor
-                                      final current =
-                                          _streamedFeedback.toString();
-                                      return Text(
-                                        current.isEmpty
-                                            ? 'Generating coaching feedback… ◌'
-                                            : '$current ◌',
-                                        style: const TextStyle(
-                                          color: AppColors.textDark,
-                                          fontSize: 14,
-                                          height: 1.7,
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : Text(
-                                    feedback,
-                                    style: const TextStyle(
-                                      color: AppColors.textDark,
-                                      fontSize: 14,
-                                      height: 1.7,
+                                      },
+                                    )
+                                  : Text(
+                                      feedback,
+                                      style: const TextStyle(
+                                        color: AppColors.textDark,
+                                        fontSize: 14,
+                                        height: 1.7,
+                                      ),
                                     ),
-                                  ),
+                            ),
                           ),
                         ],
 
