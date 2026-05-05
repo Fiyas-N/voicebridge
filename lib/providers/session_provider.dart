@@ -8,6 +8,7 @@ import '../services/audio_service.dart';
 import '../services/ai_pipeline.dart';
 import '../services/firebase_service.dart';
 import '../services/gamification_service.dart';
+import '../services/language_detection_service.dart';
 import '../services/local_llm_service.dart';
 import '../services/local_stt_service.dart';
 import '../core/constants/app_constants.dart';
@@ -41,6 +42,10 @@ class SessionProvider with ChangeNotifier {
   /// Which pipeline stage is currently active.
   PipelineStage pipelineStage = PipelineStage.idle;
 
+  /// Set to the detected language name (e.g. 'Malayalam') if the user spoke
+  /// in a non-English language. Null when English was detected or per session start.
+  /// FeedbackScreen reads this to show a 'Please speak in English' card.
+  String? languageWarning;
 
   SessionProvider(this._dbHelper, this._audioService, this._firebaseService);
 
@@ -134,6 +139,7 @@ class SessionProvider with ChangeNotifier {
     _isProcessing = true;
     earlyTranscript = null;
     feedbackStream = null;
+    languageWarning = null; // reset per session
     pipelineStage = PipelineStage.transcribing;
     notifyListeners();
 
@@ -150,11 +156,25 @@ class SessionProvider with ChangeNotifier {
         throw Exception('No speech detected — please try again.');
       }
 
-      // Publish transcript immediately so the UI can navigate forward NOW,
-      // before grammar scoring and Gemma have finished.
+      // Publish transcript immediately so the UI can navigate forward NOW.
       earlyTranscript = transcription.transcript;
       pipelineStage = PipelineStage.analyzing;
-      notifyListeners(); // ← UI reads this and navigates to FeedbackScreen
+      notifyListeners(); // ← UI navigates to FeedbackScreen with transcript
+
+      // ── Step 1.5: Language detection (instant, offline, no model) ────────
+      // Check BEFORE running grammar or loading Gemma so we waste zero resources
+      // when the user speaks in Malayalam, Hindi, Tamil, etc.
+      final langResult =
+          LanguageDetectionService().detect(transcription.transcript);
+
+      if (!langResult.isEnglish) {
+        languageWarning = langResult.detectedLanguageName ?? 'a non-English language';
+        pipelineStage = PipelineStage.done;
+        _isProcessing = false;
+        notifyListeners(); // FeedbackScreen shows the warning card
+        debugPrint('Provider: Non-English detected (${langResult.detectedCode}) — pipeline stopped.');
+        return; // ← Gemma and grammar never run — RAM saved
+      }
 
       // ── Step 2: Grammar + Pronunciation (no LLM) ────────────────────────
       debugPrint('Provider: Running grammar + pronunciation…');

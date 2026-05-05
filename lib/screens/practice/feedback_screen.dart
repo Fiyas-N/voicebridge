@@ -5,6 +5,7 @@ import '../../core/utils/validators.dart';
 import '../../data/models/session.dart';
 import '../../data/models/user_profile.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/session_provider.dart';
 import '../../services/firebase_service.dart';
 import '../../services/tts_service.dart';
 import '../../widgets/common/glass_card.dart';
@@ -146,6 +147,14 @@ class _FeedbackScreenState extends State<FeedbackScreen>
 
   @override
   Widget build(BuildContext context) {
+    // ── Language warning: shown reactively when non-English is detected ────────
+    final warning = context.select<SessionProvider, String?>(
+      (sp) => sp.languageWarning,
+    );
+    if (warning != null) {
+      return _buildLanguageWarningScreen(context, warning);
+    }
+
     final scores = widget.session.scores;
     if (scores == null) {
       return const Scaffold(
@@ -576,6 +585,135 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       case 'A2': return 'Elementary';
       default:   return 'Beginner';
     }
+  }
+
+  // ── Language warning screen ────────────────────────────────────────────────
+
+  Widget _buildLanguageWarningScreen(BuildContext context, String detectedLanguage) {
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1a1a2e), Color(0xFF16213e), Color(0xFF0f3460)],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Icon
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2), width: 2),
+                  ),
+                  child: const Center(
+                    child: Text('🌐', style: TextStyle(fontSize: 48)),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // Headline
+                const Text(
+                  'Please speak in English',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Detected language
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15)),
+                  ),
+                  child: Text(
+                    '$detectedLanguage detected',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Explanation
+                Text(
+                  'VoiceBridge helps you practice English speaking and pronunciation. '
+                  'Please record your response in English and try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 48),
+
+                // Try Again button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.mic_rounded),
+                    label: const Text(
+                      'Try Again',
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Go home
+                TextButton(
+                  onPressed: () => Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    (r) => false,
+                  ),
+                  child: Text(
+                    'Back to Home',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

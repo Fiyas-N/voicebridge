@@ -12,6 +12,7 @@ import 'services/tts_service.dart';
 import 'services/local_stt_service.dart';
 import 'services/local_llm_service.dart';
 import 'services/firebase_service.dart';
+import 'services/language_detection_service.dart';
 import 'screens/onboarding/welcome_screen.dart';
 import 'screens/setup/model_setup_screen.dart';
 import 'widgets/common/main_navigation.dart';
@@ -19,7 +20,10 @@ import 'widgets/common/main_navigation.dart';
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    
+
+    // Init offline language detection (one-time, ~instant, no network)
+    await LanguageDetectionService().init();
+
     // Global Flutter error catcher
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
