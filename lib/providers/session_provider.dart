@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import './auth_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -212,15 +213,20 @@ class SessionProvider with ChangeNotifier {
         correctedSentence: grammar.correctedText,
       );
 
-      // generateResponseStream returns a stream of tokens — UI renders each one.
-      feedbackStream = await llm.generateResponseStream(feedbackPrompt);
+      // generateResponseStream returns a single-subscription stream, so we
+      // fan it out via a broadcast StreamController — the UI (FeedbackScreen)
+      // and the provider's persistence buffer both receive every token.
+      final streamController = StreamController<String>.broadcast();
+      feedbackStream = streamController.stream;
       notifyListeners(); // FeedbackScreen subscribes to feedbackStream
 
-      // Collect full feedback string while stream is consumed by the UI.
+      final rawStream = await llm.generateResponseStream(feedbackPrompt);
       final feedbackBuffer = StringBuffer();
-      await for (final token in feedbackStream!) {
+      await for (final token in rawStream) {
         feedbackBuffer.write(token);
+        streamController.add(token);
       }
+      await streamController.close();
       final fullFeedback = feedbackBuffer.toString().trim();
 
       await llm.unloadModel();
