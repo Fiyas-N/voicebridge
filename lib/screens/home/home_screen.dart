@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/tts_service.dart';
 import '../../services/gamification_service.dart';
 import '../../core/theme/app_theme.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../widgets/common/glass_card.dart';
 import '../history/history_screen.dart';
 import '../lessons/lessons_screen.dart';
@@ -94,8 +95,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final user = authProvider.currentUser;
 
     if (user == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: AppColors.backgroundOffWhite,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade100,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      for (int i = 0; i < 3; i++) ...[
+                        Expanded(
+                          child: Container(
+                            height: 90,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                        ),
+                        if (i < 2) const SizedBox(width: 12),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  for (int i = 0; i < 4; i++)
+                    Container(
+                      height: 70,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
     }
 
@@ -619,27 +668,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     String label,
     Color accent,
   ) {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      child: Column(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 28)),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: accent,
+    return Neumorphic(
+      style: NeumorphicStyle(
+        shape: NeumorphicShape.flat,
+        boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(16)),
+        depth: 5,
+        intensity: 0.6,
+        color: AppColors.backgroundOffWhite,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 28)),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: accent,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: Theme.of(ctx).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: Theme.of(ctx).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -704,11 +762,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // ── Today's Practice Card ──────────────────────────────────────────────────
   Widget _buildTodayCard(BuildContext ctx, Prompt prompt, String userId) {
-    return GlassCard(
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Neumorphic(
+      style: NeumorphicStyle(
+        shape: NeumorphicShape.flat,
+        boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(20)),
+        depth: 6,
+        intensity: 0.65,
+        color: AppColors.backgroundOffWhite,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             children: [
               Container(
@@ -778,8 +844,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ── IELTS Part Card ────────────────────────────────────────────────────────
   Widget _buildPartCard(
@@ -792,35 +859,44 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   ) {
     return GestureDetector(
       onTap: onTap,
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
+      child: Neumorphic(
+        style: NeumorphicStyle(
+          shape: NeumorphicShape.flat,
+          boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(16)),
+          depth: 5,
+          intensity: 0.6,
+          color: AppColors.backgroundOffWhite,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: accent, size: 24),
               ),
-              child: Icon(icon, color: accent, size: 24),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark, // Changed to darker text color
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
               ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                color: AppColors.textDark.withValues(alpha: 0.8), // Changed to darker text color with opacity
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textDark.withValues(alpha: 0.8),
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -837,40 +913,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   ) {
     return GestureDetector(
       onTap: onTap,
-      child: GlassCard(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
+      child: Neumorphic(
+        style: NeumorphicStyle(
+          shape: NeumorphicShape.flat,
+          boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(16)),
+          depth: 4,
+          intensity: 0.55,
+          color: AppColors.backgroundOffWhite,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: accent, size: 22),
               ),
-              child: Icon(icon, color: accent, size: 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: Theme.of(ctx).textTheme.bodySmall,
-                  ),
-                ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.3),
-            ),
-          ],
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.3),
+              ),
+            ],
+          ),
         ),
       ),
     );
