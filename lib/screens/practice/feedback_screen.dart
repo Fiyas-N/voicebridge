@@ -41,6 +41,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   /// Accumulated feedback text when streaming (used for TTS at end).
   final StringBuffer _streamedFeedback = StringBuffer();
   bool _streamDone = false;
+  /// Tracks the last snapshot.data written — prevents double-write on rebuild.
+  String? _lastWrittenToken;
 
   static const _scoreKeys = ['fluency', 'grammar', 'pronunciation'];
   static const _scoreLabels = ['Fluency & Coherence', 'Grammar Range', 'Pronunciation'];
@@ -350,9 +352,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                                 ? StreamBuilder<String>(
                                     stream: widget.feedbackStream,
                                     builder: (context, snapshot) {
-                                      if (snapshot.hasData) {
-                                        _streamedFeedback
-                                            .write(snapshot.data);
+                                      // Only write new tokens — not on every rebuild
+                                      if (snapshot.hasData &&
+                                          snapshot.data != _lastWrittenToken) {
+                                        _lastWrittenToken = snapshot.data;
+                                        _streamedFeedback.write(snapshot.data);
                                       }
                                       if (snapshot.connectionState ==
                                           ConnectionState.done) {
