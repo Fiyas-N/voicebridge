@@ -36,6 +36,11 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 minification disabled — MediaPipe/protobuf JNI shaded classes
+            // cannot be reliably accounted for with keep rules.
+            // Code size impact is negligible given the 529MB on-device model.
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
