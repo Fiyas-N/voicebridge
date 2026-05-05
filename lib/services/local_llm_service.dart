@@ -20,14 +20,24 @@ class LocalLlmService {
   // --------------------------------------------------------------------------
   // Model configuration
   // --------------------------------------------------------------------------
+  // ▼▼ MODEL CONFIGURATION — only these two lines ever need to change ▼▼
+  // --------------------------------------------------------------------------
 
-
-  /// Download URL — GPU int4 quantized Gemma 3 1B from litert-community.
+  /// Current model: Gemma 3 1B INT4 — 529 MB on-device GPU.
+  ///
+  /// TODO(upgrade): When Gemma 3 270M lands on litert-community (~150 MB),
+  /// swap BOTH lines below and nothing else needs changing:
+  ///
+  ///   _modelBaseUrl → 'https://huggingface.co/litert-community/Gemma3-270M-IT/resolve/main/gemma3-270m-it-int4.task'
+  ///   _maxTokens    →  512  (unchanged, but verify with release notes)
+  ///
+  /// Watch: https://huggingface.co/litert-community
+  /// Track: https://github.com/google-ai-edge/gallery/issues  (flutter_gemma releases)
   static const String _modelBaseUrl =
       'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/'
       'gemma3-1b-it-int4.task';
 
-  /// Context window — 512 tokens is enough for VoiceBridge conversation turns.
+  /// Context window — 512 tokens is enough for VoiceBridge coaching turns.
   static const int _maxTokens = 512;
 
   // --------------------------------------------------------------------------
