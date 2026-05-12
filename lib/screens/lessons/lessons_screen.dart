@@ -6,7 +6,6 @@ import '../../data/models/lesson.dart';
 import '../../data/models/prompt.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/gamification_service.dart';
-import '../../widgets/common/glass_card.dart';
 import '../practice/recording_screen.dart';
 
 class LessonsScreen extends StatefulWidget {
@@ -16,28 +15,20 @@ class LessonsScreen extends StatefulWidget {
   State<LessonsScreen> createState() => _LessonsScreenState();
 }
 
-class _LessonsScreenState extends State<LessonsScreen>
-    with SingleTickerProviderStateMixin {
+class _LessonsScreenState extends State<LessonsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Map<String, bool> _completedLessons = {};
   String _userCefr = 'A1';
   bool _loading = true;
 
-  static const _levelColors = {
-    'A1': Color(0xFF9e9e9e),
-    'A2': Color(0xFFc77dff),
-    'B1': Color(0xFF4e9eff),
-    'B2': Color(0xFF4ecdc4),
-    'C1': Color(0xFF6bcb77),
-    'C2': Color(0xFFffd166),
-  };
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-        length: LessonLibrary.levels.length, vsync: this);
+    _tabController = TabController(length: LessonLibrary.levels.length, vsync: this);
     _loadProgress();
+    _tabController.addListener(() {
+      setState(() {}); // Ensure view refreshes decoration on interaction
+    });
   }
 
   @override
@@ -54,34 +45,18 @@ class _LessonsScreenState extends State<LessonsScreen>
       return;
     }
 
-    final db = await DatabaseHelper.instance.database;
-    final rows = await db.query('lesson_progress',
-        where: 'user_id = ?', whereArgs: [userId]);
+    final rows = await DatabaseHelper.instance.getLessonProgress(userId);
     final profile = await DatabaseHelper.instance.getUserProfile(userId);
     final xp = profile?['xp'] as int? ?? 0;
 
     setState(() {
-      _completedLessons = {
-        for (final r in rows)
-          r['lesson_id'] as String: true,
-      };
+      _completedLessons = {for (final r in rows) r['lesson_id'] as String: true};
       _userCefr = GamificationService.cefrForXP(xp);
       _loading = false;
     });
 
-    // Jump to the user's current CEFR tab
     final idx = LessonLibrary.levels.indexOf(_userCefr);
     if (idx >= 0) _tabController.animateTo(idx);
-  }
-
-  // ignore: unused_element
-  bool _isLevelUnlocked(String cefr) {
-    // A1 always unlocked; others unlock when previous level has ≥1 completed lesson
-    final i = LessonLibrary.levels.indexOf(cefr);
-    if (i == 0) return true;
-    final prevLevel = LessonLibrary.levels[i - 1];
-    return LessonLibrary.forLevel(prevLevel)
-        .any((l) => _completedLessons[l.id] == true);
   }
 
   void _startLesson(Lesson lesson) {
@@ -109,127 +84,130 @@ class _LessonsScreenState extends State<LessonsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        title: const Text(
-          'Lessons',
-          style: TextStyle(
-              color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 22),
+        title: Text(
+          'LESSON MATRIX'.toUpperCase(),
+          style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.textDark,
-          unselectedLabelColor: AppColors.textMedium,
-          labelStyle:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          dividerColor: AppColors.borderLight,
-          tabs: LessonLibrary.levels
-              .map((l) => Tab(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Column(
+            children: [
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                indicator: const BoxDecoration(), // No custom bottom bar
+                dividerColor: Colors.transparent,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                tabs: LessonLibrary.levels.map((l) {
+                  final active = _tabController.index == LessonLibrary.levels.indexOf(l);
+                  return Tab(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                       decoration: BoxDecoration(
-                        color: _tabController.index ==
-                                LessonLibrary.levels.indexOf(l)
-                            ? _levelColors[l]!.withValues(alpha: 0.15)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                        border: _tabController.index ==
-                                LessonLibrary.levels.indexOf(l)
-                            ? Border.all(color: _levelColors[l]!, width: 2)
-                            : Border.all(color: Colors.transparent, width: 2),
+                        color: active ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: active ? AppColors.primary : AppColors.borderLight),
                       ),
                       child: Text(
                         l,
                         style: TextStyle(
-                          color: _tabController.index == LessonLibrary.levels.indexOf(l) 
-                              ? _levelColors[l] 
-                              : AppColors.textMedium,
+                          color: active ? Colors.black : AppColors.textSecondary,
                           fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
                       ),
                     ),
-                  ))
-              .toList(),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              const Divider(height: 1, color: AppColors.borderLight),
+            ],
+          ),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : TabBarView(
               controller: _tabController,
-              children: LessonLibrary.levels
-                  .map((cefr) => _buildLevelTab(cefr))
-                  .toList(),
+              children: LessonLibrary.levels.map((cefr) => _buildLevelTab(cefr)).toList(),
             ),
     );
   }
 
   Widget _buildLevelTab(String cefr) {
     final lessons = LessonLibrary.forLevel(cefr);
-    final color = _levelColors[cefr] ?? AppColors.primary;
-    final completedCount =
-        lessons.where((l) => _completedLessons[l.id] == true).length;
+    final completedCount = lessons.where((l) => _completedLessons[l.id] == true).length;
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-            child: Row(
-              children: [
-                // Level badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color, width: 2),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          sliver: SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'LEVEL PROGRESS ($cefr)',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$completedCount / ${lessons.length} MODULES READY',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Text(
-                    cefr,
-                    style: TextStyle(
-                        color: color,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16),
+                  const SizedBox(width: 12),
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 42,
+                        height: 42,
+                        child: CircularProgressIndicator(
+                          value: lessons.isEmpty ? 0 : completedCount / lessons.length,
+                          backgroundColor: Colors.white.withValues(alpha: 0.05),
+                          valueColor: AlwaysStoppedAnimation(completedCount == lessons.length && lessons.isNotEmpty ? AppColors.accentRed : Colors.white),
+                          strokeWidth: 3.5,
+                        ),
+                      ),
+                      Text(
+                        lessons.isEmpty ? '0%' : '${((completedCount / lessons.length) * 100).toInt()}%',
+                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '$completedCount / ${lessons.length} completed',
-                  style: const TextStyle(
-                      color: AppColors.textMedium,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14),
-                ),
-                const Spacer(),
-                // Progress ring
-                SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: CircularProgressIndicator(
-                   value: lessons.isEmpty
-                        ? 0
-                        : completedCount / lessons.length,
-                    backgroundColor: AppColors.borderLight,
-                    valueColor: AlwaysStoppedAnimation(color),
-                    strokeWidth: 4,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (ctx, i) => _buildLessonCard(lessons[i], color),
-            childCount: lessons.length,
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (ctx, i) => _buildLessonCard(lessons[i]),
+              childCount: lessons.length,
+            ),
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 40)),
@@ -237,33 +215,29 @@ class _LessonsScreenState extends State<LessonsScreen>
     );
   }
 
-  Widget _buildLessonCard(Lesson lesson, Color color) {
+  Widget _buildLessonCard(Lesson lesson) {
     final done = _completedLessons[lesson.id] == true;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: GestureDetector(
         onTap: () => _startLesson(lesson),
-        child: GlassCard(
-          padding: const EdgeInsets.all(18),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: done ? AppColors.accentRed.withValues(alpha: 0.5) : AppColors.borderLight),
+          ),
           child: Row(
             children: [
-              // Emoji icon
               Container(
-                width: 56,
-                height: 56,
+                width: 48, height: 48,
                 decoration: BoxDecoration(
-                  color: done
-                      ? color.withValues(alpha: 0.15)
-                      : AppColors.backgroundOffWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  border: done
-                      ? Border.all(color: color, width: 2)
-                      : Border.all(color: AppColors.borderLight, width: 2),
+                  color: done ? AppColors.accentRed.withValues(alpha: 0.1) : Colors.black,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: done ? AppColors.accentRed : AppColors.borderLight),
                 ),
-                child: Center(
-                  child: Text(lesson.emoji,
-                      style: const TextStyle(fontSize: 28)),
-                ),
+                child: Center(child: Text(lesson.emoji, style: const TextStyle(fontSize: 20))),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -274,48 +248,25 @@ class _LessonsScreenState extends State<LessonsScreen>
                       children: [
                         Expanded(
                           child: Text(
-                            lesson.topic,
-                            style: const TextStyle(
-                              color: AppColors.textDark,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                            lesson.topic.toUpperCase(),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5),
                           ),
                         ),
-                        if (done)
-                          Icon(Icons.check_circle_rounded,
-                              color: color, size: 24),
+                        if (done) const Icon(Icons.check_circle_outline, color: AppColors.accentRed, size: 16),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       lesson.description,
-                      style: const TextStyle(
-                          color: AppColors.textMedium,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${lesson.prompts.length} prompts',
-                        style: TextStyle(
-                            color: color,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800),
-                      ),
+                      style: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
-              const Icon(Icons.play_arrow_rounded,
-                  color: AppColors.textLight, size: 28),
+              const Icon(Icons.arrow_forward_ios, color: AppColors.textTertiary, size: 14),
             ],
           ),
         ),

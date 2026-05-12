@@ -8,8 +8,7 @@ import '../../core/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/session_provider.dart';
-import 'dart:math' as math;
-import 'dart:ui';
+import '../../widgets/common/animated_button.dart';
 
 enum _TurnState { idle, listening, processing, aiThinking, aiSpeaking }
 
@@ -27,8 +26,7 @@ class ConversationScreen extends StatefulWidget {
   State<ConversationScreen> createState() => _ConversationScreenState();
 }
 
-class _ConversationScreenState extends State<ConversationScreen>
-    with SingleTickerProviderStateMixin {
+class _ConversationScreenState extends State<ConversationScreen> with SingleTickerProviderStateMixin {
   late ConversationService _conversationService;
   final AudioRecorder _recorder = AudioRecorder();
   final ScrollController _scrollController = ScrollController();
@@ -39,22 +37,10 @@ class _ConversationScreenState extends State<ConversationScreen>
   String? _currentAudioPath;
   DateTime? _startTime;
 
-  // Pulse animation for mic
-  late AnimationController _pulseController;
-  late Animation<double> _pulse;
-
   @override
   void initState() {
     super.initState();
     _conversationService = ConversationService(topic: widget.topic);
-
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 900),
-      vsync: this,
-    )..repeat(reverse: true);
-    _pulse = Tween<double>(begin: 1.0, end: 1.18)
-        .animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
-
     _startSession();
   }
 
@@ -62,7 +48,6 @@ class _ConversationScreenState extends State<ConversationScreen>
   void dispose() {
     TtsService().stop();
     _recorder.dispose();
-    _pulseController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -85,25 +70,11 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   String _stateLabel() {
     switch (_state) {
-      case _TurnState.listening: return 'LISTENING';
-      case _TurnState.processing: return 'TRANSCRIBING';
-      case _TurnState.aiThinking: return 'THINKING';
-      case _TurnState.aiSpeaking: return 'SPEAKING';
-      default: return 'TAP TO SPEAK';
-    }
-  }
-
-  Color _stateColor() {
-    switch (_state) {
-      case _TurnState.listening:
-        return AppColors.orbActive;
-      case _TurnState.aiSpeaking:
-        return AppColors.orbSpeaking;
-      case _TurnState.processing:
-      case _TurnState.aiThinking:
-        return AppColors.orbThinking;
-      default:
-        return Colors.white.withAlpha(128);
+      case _TurnState.listening: return 'MIC_ACTIVE';
+      case _TurnState.processing: return 'RENDERING';
+      case _TurnState.aiThinking: return 'AI_COMPUTING';
+      case _TurnState.aiSpeaking: return 'TRANSMITTING';
+      default: return 'AWAITING_INPUT';
     }
   }
 
@@ -113,7 +84,6 @@ class _ConversationScreenState extends State<ConversationScreen>
     if (!mounted) return;
     setState(() => _startTime = DateTime.now());
     
-    // Create a temporary stream for the opening so it renders character by character too
     final stream = _simulateTypingStream(opening);
     await _handleStreamingAIResponse(stream);
   }
@@ -131,14 +101,18 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   Future<void> _startListening() async {
     final dir = await getApplicationDocumentsDirectory();
-    _currentAudioPath =
-        '${dir.path}/conv_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    _currentAudioPath = '${dir.path}/conv_${DateTime.now().millisecondsSinceEpoch}.wav';
 
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) return;
 
     await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 128000),
+      const RecordConfig(
+        encoder: AudioEncoder.wav,
+        bitRate: 256000,
+        sampleRate: 16000,
+        numChannels: 1,
+      ),
       path: _currentAudioPath!,
     );
     setState(() => _state = _TurnState.listening);
@@ -150,63 +124,49 @@ class _ConversationScreenState extends State<ConversationScreen>
     _scrollToBottom();
 
     try {
-      final result =
-          await _conversationService.processUserTurnStream(_currentAudioPath!);
-      setState(() {
-        _state = _TurnState.aiThinking;
-      });
+      final result = await _conversationService.processUserTurnStream(_currentAudioPath!);
+      setState(() => _state = _TurnState.aiThinking);
       _scrollToBottom();
 
       if (result.transcript.isNotEmpty) {
         await _handleStreamingAIResponse(result.aiReplyStream);
       }
     } catch (e) {
-      final fallbackStream = _simulateTypingStream('Sorry, I had trouble understanding that. Please try again.');
+      final fallbackStream = _simulateTypingStream('Error loading signal. Try again.');
       await _handleStreamingAIResponse(fallbackStream);
     }
 
-    // Clean up audio file
     if (_currentAudioPath != null) {
       final f = File(_currentAudioPath!);
       if (await f.exists()) await f.delete();
     }
-
     setState(() => _state = _TurnState.idle);
   }
 
   Future<void> _handleStreamingAIResponse(Stream<String> aiStream) async {
     setState(() {
       _state = _TurnState.aiSpeaking;
-      // Inject an empty message that we will mutate as the stream flows
-      _conversationService.turns.add(
-        ConversationTurn(isUser: false, text: '', timestamp: DateTime.now())
-      );
+      _conversationService.turns.add(ConversationTurn(isUser: false, text: '', timestamp: DateTime.now()));
     });
 
     String currentFullText = '';
     String currentSentenceBuffer = '';
-
     DateTime lastUpdate = DateTime.now();
+
     await for (final chunk in aiStream) {
       if (!mounted) return;
       currentFullText += chunk;
       currentSentenceBuffer += chunk;
       
       final now = DateTime.now();
-      // Update UI at most every 100ms to prevent frame saturation
-      if (now.difference(lastUpdate).inMilliseconds > 100) {
+      if (now.difference(lastUpdate).inMilliseconds > 80) {
         setState(() {
-          _conversationService.turns.last = ConversationTurn(
-            isUser: false, 
-            text: currentFullText, 
-            timestamp: now
-          );
+          _conversationService.turns.last = ConversationTurn(isUser: false, text: currentFullText, timestamp: now);
         });
         _scrollToBottom(immediate: true);
         lastUpdate = now;
       }
 
-      // Check for sentence boundaries to trigger TTS early
       if (currentSentenceBuffer.contains(RegExp(r'[.!?]\s'))) {
         final match = RegExp(r'[.!?]\s').firstMatch(currentSentenceBuffer);
         if (match != null) {
@@ -217,22 +177,15 @@ class _ConversationScreenState extends State<ConversationScreen>
       }
     }
 
-    // Final UI update to ensure last chunks are visible
     setState(() {
-      _conversationService.turns.last = ConversationTurn(
-        isUser: false, 
-        text: currentFullText, 
-        timestamp: DateTime.now()
-      );
+      _conversationService.turns.last = ConversationTurn(isUser: false, text: currentFullText, timestamp: DateTime.now());
     });
     _scrollToBottom();
 
-    // Speak any remaining text in the buffer
     if (currentSentenceBuffer.trim().isNotEmpty) {
       _speakAI(currentSentenceBuffer.trim());
     }
 
-    // Wait for the final speech parts to end
     await TtsService().waitUntilDone();
 
     if (mounted) {
@@ -248,7 +201,6 @@ class _ConversationScreenState extends State<ConversationScreen>
     setState(() => _ending = true);
     await TtsService().stop();
 
-    // Ensure the last generated text gets finalized before summarization
     if (_conversationService.turns.isNotEmpty && !_conversationService.turns.last.isUser) {
       final lastTurnText = _conversationService.turns.removeLast().text;
       _conversationService.appendFinalAiTurn(lastTurnText);
@@ -256,7 +208,6 @@ class _ConversationScreenState extends State<ConversationScreen>
 
     final summary = await _conversationService.endConversation();
 
-    // Save session to database
     if (mounted) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final sessionProvider = Provider.of<SessionProvider>(context, listen: false);
@@ -280,6 +231,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           grammarCorrections: summary.grammarCorrections,
           improvementTips: summary.improvementTips,
           advancedVocabulary: summary.advancedVocabulary,
+          pronunciationTips: summary.pronunciationTips,
           wordResults: summary.wordResults,
         );
       }
@@ -296,226 +248,127 @@ class _ConversationScreenState extends State<ConversationScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.immersiveDark, AppColors.immersiveBlack],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // ── Background Glow ──────────────────────────────────────────
-            Positioned(
-              top: -100,
-              left: -100,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _stateColor().withAlpha(25),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
-
-            // ── App Bar ──────────────────────────────────────────────────
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withAlpha(25),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withAlpha(25)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(widget.topicEmoji, style: const TextStyle(fontSize: 16)),
-                            const SizedBox(width: 8),
-                            Text(
-                              widget.topic ?? 'Natural Chat',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _ending ? null : _endConversation,
-                        child: Text(
-                          'End',
-                          style: TextStyle(
-                            color: _ending ? Colors.white24 : AppColors.error,
-                            fontWeight: FontWeight.bold,
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Column(
+              children: [
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(context)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.borderLight),
+                          ),
+                          child: Text(
+                            (widget.topic ?? 'LIVE_SESSION').toUpperCase(),
+                            style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 10, fontFamily: 'monospace'),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Voice Selector ───────────────────────────────────────────
-            const Positioned(
-              top: 100,
-              right: 16,
-              child: _VoiceSelector(),
-            ),
-
-            // ── Main Content Area ────────────────────────────────────────
-            Positioned.fill(
-              top: 100,
-              child: Column(
-                children: [
-                  // ── Immersion Visualizer (The Orb) ──────────────────────
-                  Expanded(
-                    flex: 3,
-                    child: Center(
-                      child: _VoiceOrb(
-                        state: _state,
-                        pulse: _pulse.value,
-                        baseColor: _stateColor(),
-                      ),
-                    ),
-                  ),
-
-                  // ── Compact Glassy Transcript ───────────────────────────
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        GestureDetector(
+                          onTap: _ending ? null : _endConversation,
                           child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withAlpha(12),
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                              border: Border.all(
-                                color: Colors.white.withAlpha(25),
-                                width: 1.5,
-                              ),
+                              color: AppColors.accentRed,
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(24),
-                              itemCount: _conversationService.turns.length,
-                              itemBuilder: (ctx, i) =>
-                                  _TurnMiniBubble(turn: _conversationService.turns[i]),
-                            ),
+                            child: const Text('END', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.black, fontSize: 10)),
                           ),
-                        ),
-                      ),
+                        )
+                      ],
                     ),
                   ),
-
-                  // ── Interaction Pad ──────────────────────────────────────
-                  SafeArea(
+                ),
+                const Positioned(child: _VoiceSelector()),
+                const SizedBox(height: 32),
+                Expanded(
+                  flex: 2,
+                  child: Center(child: _VoiceOrb(state: _state)),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                      border: const Border(top: BorderSide(color: AppColors.borderLight), left: BorderSide(color: AppColors.borderLight), right: BorderSide(color: AppColors.borderLight)),
+                    ),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: _conversationService.turns.length,
+                      itemBuilder: (ctx, i) => _TurnMiniBubble(turn: _conversationService.turns[i]),
+                    ),
+                  ),
+                ),
+                Container(
+                  color: AppColors.surface,
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: SafeArea(
                     top: false,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withAlpha(0),
-                            Colors.black.withAlpha(102),
-                          ],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _stateLabel(),
+                          style: const TextStyle(color: Colors.white54, fontSize: 9, fontFamily: 'monospace', fontWeight: FontWeight.bold, letterSpacing: 1.5),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _stateLabel(),
-                            style: TextStyle(
-                              color: _stateColor().withAlpha(204),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.2,
+                        const SizedBox(height: 20),
+                        GestureDetector(
+                          onTap: () {
+                            if (_state == _TurnState.idle) {
+                              _startListening();
+                            } else if (_state == _TurnState.listening) {
+                              _stopListening();
+                            }
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 80, height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: _state == _TurnState.listening ? AppColors.purpleNeonGradient : AppColors.cyberGradient,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (_state == _TurnState.listening ? AppColors.accentRed : AppColors.primary).withValues(alpha: 0.3),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                )
+                              ]
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                          GestureDetector(
-                            onTapDown: _state == _TurnState.idle
-                                ? (_) => _startListening()
-                                : null,
-                            onTapUp: _state == _TurnState.listening
-                                ? (_) => _stopListening()
-                                : null,
-                            child: AnimatedScale(
-                              scale: _state == _TurnState.listening ? 0.9 : 1.0,
-                              duration: const Duration(milliseconds: 100),
-                              child: Container(
-                                width: 84,
-                                height: 84,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _state == _TurnState.listening
-                                      ? AppColors.error
-                                      : Colors.white.withAlpha(25),
-                                  border: Border.all(
-                                    color: _state == _TurnState.listening
-                                        ? AppColors.error
-                                        : Colors.white.withAlpha(51),
-                                    width: 4,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Icon(
-                                    _state == _TurnState.listening
-                                        ? Icons.stop_rounded
-                                        : Icons.mic_rounded,
-                                    color: Colors.white,
-                                    size: 40,
-                                  ),
-                                ),
+                            child: Center(
+                              child: Icon(
+                                _state == _TurnState.listening ? Icons.square_rounded : Icons.mic,
+                                color: Colors.black, size: 32,
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Voice Selector Widget ─────────────────────────────────────────────────────
 class _VoiceSelector extends StatefulWidget {
   const _VoiceSelector();
-
   @override
   State<_VoiceSelector> createState() => _VoiceSelectorState();
 }
@@ -524,76 +377,77 @@ class _VoiceSelectorState extends State<_VoiceSelector> {
   @override
   Widget build(BuildContext context) {
     final tts = TtsService();
-    final isFemale = tts.currentVoiceProfile == 'af_heart';
-
+    final isF = tts.currentVoiceProfile == 'af_bella';
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(25),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withAlpha(25)),
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _voiceOption(id: 'af_heart', icon: '👩', active: isFemale),
-          _voiceOption(id: 'am_adam', icon: '👨', active: !isFemale),
+          _opt(id: 'af_bella', txt: 'ALPHA', active: isF),
+          _opt(id: 'am_adam', txt: 'BETA', active: !isF),
         ],
       ),
     );
   }
 
-  Widget _voiceOption({required String id, required String icon, required bool active}) {
+  Widget _opt({required String id, required String txt, required bool active}) {
     return GestureDetector(
-      onTap: () {
-        setState(() => TtsService().setVoiceProfile(id));
-      },
+      onTap: () => setState(() => TtsService().setVoiceProfile(id)),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(25),
+          gradient: active ? AppColors.cyberGradient : null,
+          color: active ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(icon, style: const TextStyle(fontSize: 18)),
+        child: Text(txt, style: TextStyle(color: active ? Colors.black : Colors.white54, fontSize: 9, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
       ),
     );
   }
 }
 
-// ── Voice Orb Widget ──────────────────────────────────────────────────────────
 class _VoiceOrb extends StatelessWidget {
   final _TurnState state;
-  final double pulse;
-  final Color baseColor;
-
-  const _VoiceOrb({
-    required this.state,
-    required this.pulse,
-    required this.baseColor,
-  });
+  const _VoiceOrb({required this.state});
 
   @override
   Widget build(BuildContext context) {
+    final isThinking = state == _TurnState.processing || state == _TurnState.aiThinking;
+    final isActive = state == _TurnState.listening || state == _TurnState.aiSpeaking;
+    
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Outer Glow
-        Container(
-          width: 220 * pulse,
-          height: 220 * pulse,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: isActive ? 200 : 160,
+          height: isActive ? 200 : 160,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: baseColor.withAlpha(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
           ),
         ),
-        // Active Wave/Orb
-        CustomPaint(
-          size: const Size(180, 180),
-          painter: _OrbPainter(
-            color: baseColor,
-            animationValue: pulse,
-            isThinking: state == _TurnState.processing || state == _TurnState.aiThinking,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: isThinking ? 140 : 120,
+          height: isThinking ? 140 : 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: isActive ? AppColors.primary : Colors.white.withValues(alpha: 0.2), width: 2),
+            boxShadow: isActive ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.2), blurRadius: 20)] : null,
+          ),
+          child: Center(
+            child: Icon(
+              isThinking ? Icons.more_horiz : Icons.circle,
+              color: state == _TurnState.listening ? AppColors.accentRed : (isActive ? AppColors.primary : Colors.white24),
+              size: 16,
+            ),
           ),
         ),
       ],
@@ -601,127 +455,40 @@ class _VoiceOrb extends StatelessWidget {
   }
 }
 
-class _OrbPainter extends CustomPainter {
-  final Color color;
-  final double animationValue;
-  final bool isThinking;
-
-  _OrbPainter({
-    required this.color,
-    required this.animationValue,
-    required this.isThinking,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4);
-
-    if (isThinking) {
-      // Draw 3 spinning dots/blobs
-      for (int i = 0; i < 3; i++) {
-        final angle = (animationValue * 2 * math.pi) + (i * 2 * math.pi / 3);
-        final dotPos = Offset(
-          center.dx + math.cos(angle) * (radius * 0.5),
-          center.dy + math.sin(angle) * (radius * 0.5),
-        );
-        canvas.drawCircle(dotPos, radius * 0.2, paint);
-      }
-    } else {
-      // Organic flowy circle
-      final path = Path();
-      const int points = 30;
-      for (int i = 0; i <= points; i++) {
-        final double angle = (i * 2 * math.pi) / points;
-        final double r = radius * (0.8 + 0.2 * math.sin(angle * 4 + animationValue * 10));
-        final x = center.dx + r * math.cos(angle);
-        final y = center.dy + r * math.sin(angle);
-        if (i == 0) {
-          path.moveTo(x, y);
-        } else {
-          path.lineTo(x, y);
-        }
-      }
-      path.close();
-      canvas.drawPath(path, paint..color = color.withAlpha(204));
-      
-      // Secondary layer
-      final path2 = Path();
-      for (int i = 0; i <= points; i++) {
-        final double angle = (i * 2 * math.pi) / points;
-        final double r = radius * (0.9 + 0.1 * math.cos(angle * 3 - animationValue * 8));
-        final x = center.dx + r * math.cos(angle);
-        final y = center.dy + r * math.sin(angle);
-        if (i == 0) {
-          path2.moveTo(x, y);
-        } else {
-          path2.lineTo(x, y);
-        }
-      }
-      path2.close();
-      canvas.drawPath(path2, paint..color = color.withAlpha(102));
-    }
-  }
-
-  @override
-  bool shouldRepaint(_OrbPainter oldDelegate) => true;
-}
-
-// ── Mini Bubble Widget ────────────────────────────────────────────────────────
 class _TurnMiniBubble extends StatelessWidget {
   final ConversationTurn turn;
   const _TurnMiniBubble({required this.turn});
 
   @override
   Widget build(BuildContext context) {
-    final isUser = turn.isUser;
+    final isU = turn.isUser;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              Icon(
-                isUser ? Icons.person_rounded : Icons.auto_awesome_rounded,
-                size: 14,
-                color: Colors.white38,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                isUser ? 'You' : 'AI Coach',
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            turn.text,
-            style: TextStyle(
-              color: isUser ? Colors.white.withAlpha(230) : Colors.white,
-              fontSize: 16,
-              height: 1.5,
-              fontWeight: isUser ? FontWeight.normal : FontWeight.w500,
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Align(
+        alignment: isU ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isU ? AppColors.primary.withValues(alpha: 0.08) : AppColors.surfaceVariant.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(20),
+              topRight: const Radius.circular(20),
+              bottomLeft: Radius.circular(isU ? 20 : 4),
+              bottomRight: Radius.circular(isU ? 4 : 20),
             ),
+            border: Border.all(color: isU ? AppColors.primary.withValues(alpha: 0.1) : AppColors.borderLight),
           ),
-        ],
+          child: Text(
+            turn.text,
+            style: TextStyle(color: isU ? AppColors.textPrimary : Colors.white.withValues(alpha: 0.9), fontSize: 13, height: 1.4),
+          ),
+        ),
       ),
     );
   }
 }
 
-// ── Session summary dialog ────────────────────────────────────────────────────
 class _SummaryDialog extends StatelessWidget {
   final SessionSummary summary;
   const _SummaryDialog({required this.summary});
@@ -729,77 +496,49 @@ class _SummaryDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(24),
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: AppColors.borderLight),
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Session Complete! 🎉',
-                  style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold, fontSize: 20)),
-              const SizedBox(height: 16),
-              
-              // CEFR badge & Score
+              const Text('SESSION COMPLETE', textAlign: TextAlign.center, style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+              const SizedBox(height: 32),
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [AppColors.primary, AppColors.secondary]),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(summary.cefrLevel,
-                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 16),
-                  Text('${summary.compositeScore.toInt()}%',
-                      style: const TextStyle(color: AppColors.textDark, fontSize: 22, fontWeight: FontWeight.w800)),
+                  _metric('CEFR', summary.cefrLevel),
+                  _metric('SCORE', '${summary.compositeScore.toInt()}%'),
                 ],
               ),
+              const SizedBox(height: 24),
+              const Divider(color: AppColors.borderLight),
               const SizedBox(height: 20),
-
-              // Summary Feedback
-              Text(summary.feedback,
-                  style: const TextStyle(color: AppColors.textMedium, fontSize: 13, height: 1.5),
-                  textAlign: TextAlign.center),
-              
-              const Divider(height: 40),
-
-              // ── DEEP DIVE SECTION ─────────────────────────────────────
-              const _SectionHeader(title: 'GRAMMAR FIXES', icon: Icons.spellcheck_rounded),
-              if (summary.grammarCorrections.isEmpty)
-                const _EmptySection(text: 'No grammar issues found! Great job.')
-              else
-                ...summary.grammarCorrections.map((g) => _FeedbackItem(text: g, color: AppColors.error)),
-
-              const SizedBox(height: 24),
-              const _SectionHeader(title: 'NATIVE TIPS', icon: Icons.tips_and_updates_rounded),
-              ...summary.improvementTips.map((t) => _FeedbackItem(text: t, color: AppColors.primary)),
-
-              const SizedBox(height: 24),
-              const _SectionHeader(title: 'ADVANCED VOCAB', icon: Icons.auto_stories_rounded),
-              ...summary.advancedVocabulary.map((v) => _FeedbackItem(text: v, color: AppColors.secondary)),
-
+              Text(summary.feedback, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4), textAlign: TextAlign.center),
               const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context); // dismiss dialog
-                    Navigator.pop(context); // back to home
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('Back to Home', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
+              
+              const Text('CORRECTIONS', style: TextStyle(fontSize: 9, fontFamily: 'monospace', color: AppColors.textTertiary, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              const SizedBox(height: 12),
+              if (summary.grammarCorrections.isEmpty)
+                const Text('NONE DETECTED', style: TextStyle(fontSize: 11, color: Colors.white24))
+              else
+                ...summary.grammarCorrections.map((g) => _fbItem(g)),
+
+              const SizedBox(height: 40),
+              AnimatedButton(
+                text: 'CLOSE ARCHIVE',
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                },
               ),
             ],
           ),
@@ -807,64 +546,27 @@ class _SummaryDialog extends StatelessWidget {
       ),
     );
   }
-}
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  const _SectionHeader({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+  Widget _metric(String l, String v) {
+    return Column(
       children: [
-        Icon(icon, size: 16, color: AppColors.textMedium),
-        const SizedBox(width: 8),
-        Text(title,
-            style: const TextStyle(
-                color: AppColors.textMedium, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2)),
+        Text(l, style: const TextStyle(fontSize: 9, color: AppColors.textTertiary, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        const SizedBox(height: 4),
+        Text(v, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
       ],
     );
   }
-}
 
-class _FeedbackItem extends StatelessWidget {
-  final String text;
-  final Color color;
-  const _FeedbackItem({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(51)),
-      ),
+  Widget _fbItem(String t) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_circle_outline_rounded, size: 14, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(text, style: TextStyle(color: color.withAlpha(230), fontSize: 12)),
-          ),
+          const Text('» ', style: TextStyle(color: AppColors.accentRed, fontWeight: FontWeight.bold)),
+          Expanded(child: Text(t, style: const TextStyle(fontSize: 12, color: Colors.white70, height: 1.4))),
         ],
       ),
-    );
-  }
-}
-
-class _EmptySection extends StatelessWidget {
-  final String text;
-  const _EmptySection({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(text, style: const TextStyle(color: AppColors.textLight, fontSize: 12, fontStyle: FontStyle.italic)),
     );
   }
 }

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'local_stt_service.dart';
 import 'local_llm_service.dart';
@@ -24,6 +23,7 @@ class AIProcessingPipeline {
   Future<SessionAnalysis> processRecording({
     required String audioPath,
     required String promptText,
+    required double audioDuration,
   }) async {
     final llm = LocalLlmService();
     try {
@@ -40,10 +40,11 @@ class AIProcessingPipeline {
       debugPrint('Pipeline: Running grammar analysis…');
       final grammar = await grammarService.analyzeGrammar(transcription.transcript);
 
-      // Step 3: Pronunciation assessment (heuristics, no extra model)
+      // Step 3: Pronunciation assessment (mathematical precise assessment)
       final pronunciation = await pronunciationService.assessPronunciation(
         audioPath: audioPath,
         referenceText: promptText,
+        audioDurationSeconds: audioDuration,
       );
 
       // Step 4: Score calculation
@@ -55,24 +56,23 @@ class AIProcessingPipeline {
       final ieltsBand = _mapToSpeakingBand(overallScore);
       final cefr = _mapToCEFR(overallScore);
 
-      // Step 5: Load Gemma — STT done, grammar done, now we need feedback.
-      // warmLoad() was already called at recording start so this is usually instant.
-      debugPrint('Pipeline: Loading Gemma 3 1B for feedback… RSS: ${ProcessInfo.currentRss ~/ 1024 ~/ 1024}MB');
-      await llm.loadModel();
+      // Step 5 & 6: Personalised feedback (routed dynamic selection internally)
+      final mispronounced = transcription.words
+          .where((w) => w.confidence < 0.65 && w.word.length > 2)
+          .map((w) => w.word)
+          .toSet()
+          .toList();
 
-      // Step 6: Personalised feedback — single Gemma call
-      final errorTypes = grammar.errors.map((e) => e.type).toSet().toList();
       final feedback = await feedbackService.generateFeedback(
         fluencyScore: pronunciation.fluencyScore,
         grammarScore: grammar.score,
         pronunciationScore: pronunciation.overallScore,
-        grammarErrors: errorTypes,
+        grammarErrors: grammar.errors.toList(),
+        mispronounced: mispronounced,
         correctedSentence: grammar.correctedText,
       );
 
-      // Step 7: Unload LLM immediately — free RAM before TTS loads
-      debugPrint('Pipeline: Unloading LLM… RSS: ${ProcessInfo.currentRss ~/ 1024 ~/ 1024}MB');
-      await llm.unloadModel();
+      debugPrint('Pipeline: Analysis modules complete.');
 
       debugPrint('Pipeline: Complete.');
       return SessionAnalysis(

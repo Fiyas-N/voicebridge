@@ -34,7 +34,6 @@ class _AnimatedButtonState extends State<AnimatedButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  bool _isPressed = false;
 
   @override
   void initState() {
@@ -43,8 +42,8 @@ class _AnimatedButtonState extends State<AnimatedButton>
       duration: AppAnimations.fast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: AppAnimations.bouncyCurve),
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
   }
 
@@ -55,23 +54,28 @@ class _AnimatedButtonState extends State<AnimatedButton>
   }
 
   void _handleTapDown(TapDownDetails details) {
-    setState(() => _isPressed = true);
     _controller.forward();
     haptic.HapticFeedback.buttonTap();
   }
 
   void _handleTapUp(TapUpDetails details) {
-    setState(() => _isPressed = false);
     _controller.reverse();
   }
 
   void _handleTapCancel() {
-    setState(() => _isPressed = false);
     _controller.reverse();
   }
 
   @override
   Widget build(BuildContext context) {
+    final Color effectiveBg = widget.isPrimary 
+        ? AppColors.primary 
+        : (widget.backgroundColor ?? Colors.transparent);
+        
+    final Color effectiveTextColor = widget.isPrimary 
+        ? Colors.black 
+        : (widget.textColor ?? AppColors.textPrimary);
+
     return GestureDetector(
       onTapDown: widget.isLoading ? null : _handleTapDown,
       onTapUp: widget.isLoading ? null : _handleTapUp,
@@ -79,54 +83,51 @@ class _AnimatedButtonState extends State<AnimatedButton>
       onTap: widget.isLoading ? null : widget.onPressed,
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Container(
+        child: AnimatedContainer(
+          duration: AppAnimations.fast,
           width: widget.width,
-          height: widget.height ?? 56,
+          height: widget.height ?? 58,
           decoration: BoxDecoration(
-            color: widget.isPrimary ? AppColors.primary : widget.backgroundColor,
-            borderRadius: BorderRadius.circular(16),
-            border: widget.isPrimary && !_isPressed 
-                ? const Border(bottom: BorderSide(color: AppColors.primaryDark, width: 4))
+            color: effectiveBg,
+            borderRadius: BorderRadius.circular(32),
+            border: !widget.isPrimary 
+                ? Border.all(color: AppColors.borderMedium, width: 1.5)
                 : null,
           ),
           child: Material(
             color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: widget.isLoading ? null : widget.onPressed,
-              child: Center(
-                child: widget.isLoading
-                    ? SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            widget.textColor ?? Colors.white,
-                          ),
-                        ),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (widget.icon != null) ...[
-                            Icon(
-                              widget.icon,
-                              color: widget.textColor ?? Colors.white,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          Text(
-                            widget.text,
-                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                  color: widget.textColor ?? Colors.white,
-                                ),
-                          ),
-                        ],
+            child: Center(
+              child: widget.isLoading
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(effectiveTextColor),
                       ),
-              ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (widget.icon != null) ...[
+                          Icon(
+                            widget.icon,
+                            color: effectiveTextColor,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Text(
+                          widget.text.toUpperCase(), // Nothing aesthetic uses uppercases for action
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                color: effectiveTextColor,
+                                fontSize: 14,
+                                letterSpacing: 1.5,
+                              ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),

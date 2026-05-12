@@ -76,8 +76,8 @@ class WordHighlightLegend extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(label,
-            style: const TextStyle(
-                color: AppColors.textMedium, fontSize: 11)),
+            style: TextStyle(
+                color: AppColors.textSecondary, fontSize: 11)),
       ],
     );
   }

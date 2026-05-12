@@ -48,7 +48,7 @@ class AudioService {
       
       // Get temp directory
       final directory = await getApplicationDocumentsDirectory();
-      final path = '${directory.path}/recordings/$sessionId.m4a';
+      final path = '${directory.path}/recordings/$sessionId.wav';
       
       // Create recordings directory if it doesn't exist
       final recordingsDir = Directory('${directory.path}/recordings');
@@ -56,12 +56,13 @@ class AudioService {
         await recordingsDir.create(recursive: true);
       }
       
-      // Start recording with v5 API
+      // Start recording with v5 API (Whisper expects 16kHz PCM WAV)
       await _recorder.start(
         const RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 44100,
+          encoder: AudioEncoder.wav,
+          bitRate: 256000,
+          sampleRate: 16000,
+          numChannels: 1,
         ),
         path: path,
       );

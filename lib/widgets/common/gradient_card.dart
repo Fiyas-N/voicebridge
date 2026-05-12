@@ -35,29 +35,23 @@ class GradientCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: gradient,
         color: gradient == null ? (backgroundColor ?? (withGlass 
-            ? AppColors.surface.withValues(alpha: 0.7)
-            : AppColors.surface)) : null,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: withGlass ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
-        border: withGlass ? Border.all(
-          color: AppColors.borderLight.withValues(alpha: 0.5),
-          width: 1.5,
-        ) : null,
+            ? Colors.white.withValues(alpha: 0.05)
+            : AppColors.surfaceVariant)) : null,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: null, // NO Shadow design policy
+        border: Border.all(
+          color: withGlass ? Colors.white.withValues(alpha: 0.1) : AppColors.borderLight,
+          width: 1.0,
+        ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
           filter: withGlass 
-              ? ImageFilter.blur(sigmaX: 10, sigmaY: 10)
+              ? ImageFilter.blur(sigmaX: 15, sigmaY: 15)
               : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
           child: Padding(
-            padding: padding ?? const EdgeInsets.all(20),
+            padding: padding ?? const EdgeInsets.all(24),
             child: child,
           ),
         ),
@@ -69,7 +63,9 @@ class GradientCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(28),
+          splashColor: Colors.white.withValues(alpha: 0.05),
+          highlightColor: Colors.white.withValues(alpha: 0.02),
           child: content,
         ),
       );

@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/common/glass_card.dart';
 import 'baseline_assessment_screen.dart';
 import 'login_screen.dart';
 
@@ -31,240 +30,157 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      await authProvider.signUp(
-        _emailController.text.trim(),
-        _passwordController.text,
-        _nameController.text.trim(),
-      );
-
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      await auth.signUp(_emailController.text.trim(), _passwordController.text, _nameController.text.trim());
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const BaselineAssessmentScreen(),
-          ),
-        );
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const BaselineAssessmentScreen()));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sign up failed: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('REGISTRATION_ERR: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: AppColors.error,
+        ));
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
-      extendBodyBehindAppBar: true,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
       ),
       body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-                  // Logo
-                  GlassCard(
-                    padding: const EdgeInsets.all(20),
-                    borderRadius: BorderRadius.circular(40),
-                    child: const Icon(
-                      Icons.person_add_rounded,
-                      size: 40,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Create Account',
-                    style: TextStyle(
-                      color: AppColors.textDark,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Start your English journey today',
-                    style: TextStyle(
-                      color: AppColors.textMedium,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  // Form Card
-                  GlassCard(
-                    padding: const EdgeInsets.all(24),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          _buildTextField(
-                            controller: _nameController,
-                            label: 'Full Name',
-                            hint: 'John Doe',
-                            icon: Icons.person_outline,
-                            validator: Validators.validateName,
-                            textInputAction: TextInputAction.next,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _emailController,
-                            label: 'Email',
-                            hint: 'john@example.com',
-                            icon: Icons.email_outlined,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: Validators.validateEmail,
-                            textInputAction: TextInputAction.next,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _passwordController,
-                            label: 'Password',
-                            hint: '••••••••',
-                            icon: Icons.lock_outline,
-                            obscureText: true,
-                            validator: Validators.validatePassword,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _handleSignup(),
-                          ),
-                          const SizedBox(height: 32),
-                          
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : _handleSignup,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(double.infinity, 56),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 24,
-                                    width: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                : const Text(
-                                    'Create Account',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.borderLight)),
+                  child: const Icon(Icons.person_add_alt_1_outlined, size: 36, color: Colors.white),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'REGISTER_NEW_UNIT'.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'PROVISIONING USER CREDENTIALS',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontFamily: 'monospace', letterSpacing: 1),
+              ),
+              const SizedBox(height: 32),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface, borderRadius: BorderRadius.circular(28), border: Border.all(color: AppColors.borderLight),
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
                     children: [
-                      const Text(
-                        'Already have an account? ',
-                        style: TextStyle(
-                          color: AppColors.textMedium,
-                          fontSize: 14,
-                        ),
+                      _buildInput(
+                        ctrl: _nameController,
+                        lbl: 'DISPLAY_NAME',
+                        ht: 'ENTER NAME',
+                        icon: Icons.badge_outlined,
+                        val: Validators.validateName,
                       ),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Log In',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      const SizedBox(height: 16),
+                      _buildInput(
+                        ctrl: _emailController,
+                        lbl: 'EMAIL_ADDRESS',
+                        ht: 'VALID EMAIL',
+                        icon: Icons.alternate_email,
+                        val: Validators.validateEmail,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInput(
+                        ctrl: _passwordController,
+                        lbl: 'SECRET_TOKEN',
+                        ht: 'CREATE PASSKEY',
+                        icon: Icons.lock_outline,
+                        obsc: true,
+                        val: Validators.validatePassword,
+                        sub: (_) => _handleSignup(),
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _handleSignup,
+                          child: _isLoading
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                              : const Text('CREATE_PROFILE'),
                         ),
                       ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('ALREADY_PROVISIONED? ', style: TextStyle(color: Colors.white38, fontFamily: 'monospace', fontSize: 11)),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen())),
+                    child: const Text('SIGN_IN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, fontFamily: 'monospace', fontSize: 11)),
+                  ),
                 ],
               ),
-            ),
+              const SizedBox(height: 40),
+            ],
           ),
+        ),
+      ),
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
+  Widget _buildInput({
+    required TextEditingController ctrl,
+    required String lbl,
+    required String ht,
     required IconData icon,
-    bool obscureText = false,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-    TextInputAction? textInputAction,
-    void Function(String)? onFieldSubmitted,
+    bool obsc = false,
+    String? Function(String?)? val,
+    void Function(String)? sub,
   }) {
     return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      validator: validator,
-      textInputAction: textInputAction,
-      onFieldSubmitted: onFieldSubmitted,
-      style: const TextStyle(color: AppColors.textDark),
+      controller: ctrl,
+      obscureText: obsc,
+      validator: val,
+      onFieldSubmitted: sub,
+      style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13),
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: AppColors.textMedium),
-        labelStyle: const TextStyle(color: AppColors.textMedium),
-        hintStyle: const TextStyle(color: AppColors.borderMedium),
+        labelText: lbl,
+        hintText: ht,
+        hintStyle: const TextStyle(color: Colors.white24),
+        labelStyle: const TextStyle(fontFamily: 'monospace', color: AppColors.textTertiary, fontSize: 11),
+        prefixIcon: Icon(icon, color: Colors.white38, size: 18),
         filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderLight),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderLight),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
-        ),
+        fillColor: Colors.black45,
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.borderLight)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.white)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.accentRed)),
+        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.accentRed)),
       ),
     );
   }

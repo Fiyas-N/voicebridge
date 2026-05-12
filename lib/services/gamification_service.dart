@@ -102,6 +102,7 @@ class GamificationService {
     required int currentStreak,
     required int totalSessions,
   }) async {
+    // ignore unused params — computed fresh from the DB below
     final db = await DatabaseHelper.instance.database;
     final profile = await DatabaseHelper.instance.getUserProfile(userId);
     if (profile == null) return [];
@@ -116,32 +117,32 @@ class GamificationService {
     final today = now.toIso8601String().substring(0, 10);
     final lastDateStr = profile['last_session_date'] as String? ?? '';
     
-    int currentStreak = profile['current_streak'] as int? ?? 0;
+    var dbStreak = profile['current_streak'] as int? ?? 0;
     int longestStreak = profile['longest_streak'] as int? ?? 0;
     int todaySessions = (lastDateStr == today ? (profile['daily_sessions_today'] as int? ?? 0) + 1 : 1);
 
     if (lastDateStr.isEmpty) {
-      currentStreak = 1;
+      dbStreak = 1;
     } else {
       final lastDate = DateTime.parse(lastDateStr);
       final difference = now.difference(lastDate).inDays;
 
       if (difference == 1) {
-        // Logged in yesterday, increment streak
-        currentStreak++;
+        dbStreak++;
       } else if (difference > 1) {
-        // Missed a day, reset streak
-        currentStreak = 1;
+        dbStreak = 1;
       }
-      // If difference is 0, it's the same day, streak doesn't change
+      // If difference is 0, same day — streak unchanged
     }
 
-    if (currentStreak > longestStreak) {
-      longestStreak = currentStreak;
+    if (dbStreak > longestStreak) {
+      longestStreak = dbStreak;
     }
 
-    // Achievements check
+    // Achievements check — collect XP bonuses separately to avoid
+    // mutating a variable captured inside a closure (Dart 3.8+).
     final List<String> unlocked = [];
+    int achievementXPBonus = 0;
     final existingJson = profile['achievements_json'] as String? ?? '[]';
     final existing = List<String>.from(
         (existingJson.replaceAll('[', '').replaceAll(']', '').replaceAll('"', '')
@@ -151,15 +152,14 @@ class GamificationService {
       if (condition && !existing.contains(key)) {
         existing.add(key);
         unlocked.add(key);
-        final bonus = achievements[key]?['xpReward'] as int? ?? 0;
-        currentXP += bonus;
+        achievementXPBonus += achievements[key]?['xpReward'] as int? ?? 0;
       }
     }
 
     check('first_session', newTotalSessions >= 1);
-    check('streak_3', currentStreak >= 3);
-    check('streak_7', currentStreak >= 7);
-    check('streak_30', currentStreak >= 30);
+    check('streak_3', dbStreak >= 3);
+    check('streak_7', dbStreak >= 7);
+    check('streak_30', dbStreak >= 30);
     check('cefr_b1', cefrLevel == 'B1' || cefrLevel == 'B2' || cefrLevel == 'C1' || cefrLevel == 'C2');
     check('cefr_b2', cefrLevel == 'B2' || cefrLevel == 'C1' || cefrLevel == 'C2');
     check('cefr_c1', cefrLevel == 'C1' || cefrLevel == 'C2');
@@ -167,13 +167,16 @@ class GamificationService {
     check('sessions_10', newTotalSessions >= 10);
     check('sessions_50', newTotalSessions >= 50);
 
+    // Apply all achievement bonuses after the closure runs
+    currentXP += achievementXPBonus;
+
     final achievementsJson = '[${existing.map((s) => '"$s"').join(',')}]';
 
     await db.update('user_profile', {
       'xp': currentXP,
       'daily_sessions_today': todaySessions,
       'last_session_date': today,
-      'current_streak': currentStreak,
+      'current_streak': dbStreak,
       'longest_streak': longestStreak,
       'total_sessions': newTotalSessions,
       'achievements_json': achievementsJson,

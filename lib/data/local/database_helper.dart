@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:flutter/foundation.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -19,7 +20,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -27,10 +28,31 @@ class DatabaseHelper {
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 5) {
-      // For development simplicity, we drop and recreate
+      // Legacy drop logic preserved
       await db.execute('DROP TABLE IF EXISTS sessions');
       await db.execute('DROP TABLE IF EXISTS user_profile');
       await _createDB(db, newVersion);
+      return; // Return early since tables recreated completely
+    }
+    
+    if (oldVersion < 8) {
+      // 1. Incremental migration for pronunciation
+      try {
+        await db.execute('ALTER TABLE sessions ADD COLUMN pronunciation_tips TEXT');
+      } catch (_) {}
+
+      // 2. Ensure lesson progress exists for existing users who jumped schema
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS lesson_progress (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          lesson_id TEXT NOT NULL,
+          completed_at INTEGER,
+          score REAL,
+          UNIQUE(user_id, lesson_id)
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_lesson_progress_user ON lesson_progress(user_id)');
     }
   }
 
@@ -87,7 +109,8 @@ class DatabaseHelper {
         last_synced_at INTEGER,
         grammar_corrections TEXT,
         improvement_tips TEXT,
-        advanced_vocabulary TEXT
+        advanced_vocabulary TEXT,
+        pronunciation_tips TEXT
       )
     ''');
 
@@ -133,21 +156,62 @@ class DatabaseHelper {
   // Session Operations
   Future<void> insertSession(Map<String, dynamic> session) async {
     final db = await database;
-    await db.insert(
-      'sessions',
-      session,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    try {
+      await db.insert(
+        'sessions',
+        session,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      // Robust Self-Healing: If DB cache didn't refresh schema, manually patch column and retry.
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('no column named pronunciation_tips') || errorStr.contains('has no column')) {
+        debugPrint('DatabaseHelper: Detected stale session schema. Executing emergency hot-patch...');
+        try {
+          await db.execute('ALTER TABLE sessions ADD COLUMN pronunciation_tips TEXT');
+          debugPrint('DatabaseHelper: Hot-patch succeeded. Retrying operation...');
+          // Re-attempt original insertion now that schema satisfies dependencies
+          await db.insert(
+            'sessions',
+            session,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          return; // Retried insert succeeded
+        } catch (innerError) {
+          debugPrint('DatabaseHelper: Hot-patch failure: $innerError');
+        }
+      }
+      // Re-throw if healing failed or it was a different kind of error
+      rethrow;
+    }
   }
 
   Future<void> updateSession(String sessionId, Map<String, dynamic> updates) async {
     final db = await database;
-    await db.update(
-      'sessions',
-      updates,
-      where: 'session_id = ?',
-      whereArgs: [sessionId],
-    );
+    try {
+      await db.update(
+        'sessions',
+        updates,
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+    } catch (e) {
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('no column named pronunciation_tips') || errorStr.contains('has no column')) {
+        debugPrint('DatabaseHelper: Emergency hot-patch triggered during update...');
+        try {
+          await db.execute('ALTER TABLE sessions ADD COLUMN pronunciation_tips TEXT');
+          await db.update(
+            'sessions',
+            updates,
+            where: 'session_id = ?',
+            whereArgs: [sessionId],
+          );
+          return;
+        } catch (_) {}
+      }
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>?> getSession(String sessionId) async {
@@ -171,13 +235,46 @@ class DatabaseHelper {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getPendingSessions(String userId) async {
+  Future<List<Map<String, dynamic>>> getUnsyncedSessions(String userId) async {
     final db = await database;
     return await db.query(
       'sessions',
       where: 'user_id = ? AND synced = ? AND status = ?',
-      whereArgs: [userId, 0, 'pending_upload'],
+      whereArgs: [userId, 0, 'completed'],
     );
+  }
+
+  // Lesson Operations
+  Future<List<Map<String, dynamic>>> getLessonProgress(String userId) async {
+    final db = await database;
+    try {
+      return await db.query(
+        'lesson_progress',
+        where: 'user_id = ?',
+        whereArgs: [userId],
+      );
+    } catch (e) {
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('no such table') || errorStr.contains('doesn\'t exist')) {
+        debugPrint('DatabaseHelper: Emergency provision of lesson_progress table...');
+        try {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS lesson_progress (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              user_id TEXT NOT NULL,
+              lesson_id TEXT NOT NULL,
+              completed_at INTEGER,
+              score REAL,
+              UNIQUE(user_id, lesson_id)
+            )
+          ''');
+          await db.execute('CREATE INDEX IF NOT EXISTS idx_lesson_progress_user ON lesson_progress(user_id)');
+          debugPrint('DatabaseHelper: Provision complete. Retrying query...');
+          return await db.query('lesson_progress', where: 'user_id = ?', whereArgs: [userId]);
+        } catch (_) {}
+      }
+      return []; // Final graceful failure fallback
+    }
   }
 
   Future close() async {

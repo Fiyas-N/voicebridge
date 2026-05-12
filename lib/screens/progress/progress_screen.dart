@@ -4,7 +4,6 @@ import '../../core/theme/app_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../data/local/database_helper.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/common/glass_card.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -35,10 +34,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
       if (userId == null) return;
 
-      // Load from local SQLite — has full score data in snake_case columns
       final sessions = await DatabaseHelper.instance.getUserSessions(userId, limit: 100);
-
-      // Only count completed sessions with scores
       final completed = sessions
           .where((s) => s['status'] == 'completed' && s['composite_score'] != null)
           .toList();
@@ -63,8 +59,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
     }
 
     _totalSessions = sessions.length;
-
-    // SQLite uses flat snake_case columns for scores
     double totalFluency = 0, totalGrammar = 0, totalPronunciation = 0, totalOverall = 0;
     int count = 0;
 
@@ -73,10 +67,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
       final g = (session['grammar_score']        as num?)?.toDouble();
       final p = (session['pronunciation_score']  as num?)?.toDouble();
       final o = (session['composite_score']      as num?)?.toDouble();
-      if (f != null) { totalFluency       += f; }
-      if (g != null) { totalGrammar        += g; }
-      if (p != null) { totalPronunciation  += p; }
-      if (o != null) { totalOverall        += o; count++; }
+      if (f != null) totalFluency += f;
+      if (g != null) totalGrammar += g;
+      if (p != null) totalPronunciation += p;
+      if (o != null) { totalOverall += o; count++; }
     }
 
     final n = count > 0 ? count : 1;
@@ -92,19 +86,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   int _calculateStreak(List<Map<String, dynamic>> sessions) {
     if (sessions.isEmpty) return 0;
-
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     int streak = 0;
     DateTime checkDate = today;
 
-    // SQLite uses created_at (snake_case)
     for (var session in sessions) {
-      final sessionDate = DateTime.fromMillisecondsSinceEpoch(
-        session['created_at'] as int? ?? 0,
-      );
-      final sessionDay =
-          DateTime(sessionDate.year, sessionDate.month, sessionDate.day);
+      final sessionDate = DateTime.fromMillisecondsSinceEpoch(session['created_at'] as int? ?? 0);
+      final sessionDay = DateTime(sessionDate.year, sessionDate.month, sessionDate.day);
 
       if (sessionDay == checkDate) {
         streak++;
@@ -113,123 +102,51 @@ class _ProgressScreenState extends State<ProgressScreen> {
         break;
       }
     }
-
     return streak;
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
-    Provider.of<AuthProvider>(context); // ensures rebuild on auth changes
-
     return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // Solid App Bar
-            SliverAppBar(
-              expandedHeight: 120,
-              floating: false,
-              pinned: true,
-              backgroundColor: AppColors.surface,
-              elevation: 0,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
-                onPressed: () => Navigator.pop(context),
-              ),
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(1.0),
-                child: Container(
-                  color: AppColors.borderLight,
-                  height: 1.0,
-                ),
-              ),
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  color: AppColors.surface,
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const Text(
-                            'Progress',
-                            style: TextStyle(
-                              color: AppColors.textDark,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '$_totalSessions sessions completed',
-                            style: const TextStyle(
-                              color: AppColors.textMedium,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Content
-            SliverToBoxAdapter(
-              child: _isLoading
-                  ? const Padding(
-                      padding: EdgeInsets.all(48.0),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                        ),
-                      ),
-                    )
-                  : _sessions.isEmpty
-                      ? _buildEmptyState(context)
-                      : _buildProgressContent(context),
-            ),
-          ],
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        title: Text(
+          'ANALYTICS'.toUpperCase(),
+          style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16),
         ),
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : _sessions.isEmpty
+              ? _buildEmptyState(context)
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  physics: const BouncingScrollPhysics(),
+                  child: _buildProgressContent(context),
+                ),
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: GlassCard(
+    return Center(
+      child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.info_outline,
-              size: 64,
-              color: AppColors.textLight,
+            const Icon(Icons.analytics_outlined, size: 64, color: AppColors.textTertiary),
+            const SizedBox(height: 24),
+            const Text(
+              'INSUFFICIENT DATA',
+              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'No Progress Yet',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.textDark,
-                    fontWeight: FontWeight.bold,
-                  ),
+            const SizedBox(height: 8),
+            const Text(
+              'Complete tracking modules to render insights.',
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Complete practice sessions to see your progress!',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textMedium,
-                  ),
-              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textTertiary),
             ),
           ],
         ),
@@ -238,7 +155,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   Widget _buildProgressContent(BuildContext context) {
-    // Calculate best score and average band
     double bestScore = 0;
     double totalBand = 0;
     for (final s in _sessions) {
@@ -250,89 +166,86 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final avgBand = _sessions.isNotEmpty ? totalBand / _sessions.length : 0;
     final trend = _calcTrend();
 
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 4-stat grid
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.4,
-            children: [
-              _buildStatCard('🔥', 'Streak', '$_currentStreak days', const Color(0xFFFF9600)), // Duolingo orange
-              _buildStatCard('📊', 'Sessions', '$_totalSessions total', AppColors.primary),
-              _buildStatCard('🏆', 'Best Score', '${bestScore.round()}/100', const Color(0xFFFFC800)), // Star gold
-              _buildStatCard('🎯', 'Avg Band', avgBand.toStringAsFixed(1), AppColors.secondary),
-            ],
-          ),
-          const SizedBox(height: 32),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Stat block
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 1.3,
+          children: [
+            _buildStatCard('🔥', 'STREAK', '$_currentStreak'),
+            _buildStatCard('📊', 'LOGS', '$_totalSessions'),
+            _buildStatCard('🏆', 'BEST', '${bestScore.round()}'),
+            _buildStatCard('🎯', 'CEFR_BAND', avgBand.toStringAsFixed(1)),
+          ],
+        ),
+        const SizedBox(height: 32),
 
-          // Trend label
-          Row(
+        // Charts
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Score Trend',
-                style: TextStyle(color: AppColors.textDark, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              if (trend != null) ...
-                [
-                  Icon(
-                    trend > 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                    color: trend > 0 ? AppColors.success : AppColors.error,
-                    size: 20,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'RENDERING TREND',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontFamily: 'monospace'),
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${trend > 0 ? '+' : ''}${trend.round()} vs last 3',
-                    style: TextStyle(
-                      color: trend > 0 ? AppColors.success : AppColors.error,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
+                  if (trend != null)
+                    Text(
+                      '${trend > 0 ? '+' : ''}${trend.round()}%',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: trend > 0 ? AppColors.accentRed : AppColors.textSecondary, fontSize: 11),
                     ),
-                  ),
                 ],
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 180,
+                child: _buildScoreTrendChart(),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          GlassCard(
-            padding: const EdgeInsets.all(20),
-            child: SizedBox(
-              height: 200,
-              child: _buildScoreTrendChart(),
-            ),
-          ),
-          const SizedBox(height: 32),
+        ),
+        const SizedBox(height: 32),
 
-          // Skills Breakdown
-          const Text(
-            'Skills Breakdown',
-            style: TextStyle(color: AppColors.textDark, fontSize: 18, fontWeight: FontWeight.bold),
+        // Breakdown
+        const Text(
+          'CORE METRICS',
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textTertiary),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.borderLight),
           ),
-          const SizedBox(height: 16),
-          GlassCard(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _buildSkillCard('Fluency & Coherence', _averageScores['fluency']!.toInt(),
-                    Icons.speed_rounded, AppColors.primary),
-                const SizedBox(height: 24),
-                _buildSkillCard('Grammar Range', _averageScores['grammar']!.toInt(),
-                    Icons.spellcheck_rounded, AppColors.secondary),
-                const SizedBox(height: 24),
-                _buildSkillCard('Pronunciation', _averageScores['pronunciation']!.toInt(),
-                    Icons.record_voice_over_rounded, const Color(0xFFFF9600)),
-              ],
-            ),
+          child: Column(
+            children: [
+              _buildSkillCard('FLUENCY', _averageScores['fluency']!.toInt(), Icons.speed_rounded),
+              const SizedBox(height: 24),
+              _buildSkillCard('GRAMMAR', _averageScores['grammar']!.toInt(), Icons.data_object_rounded),
+              const SizedBox(height: 24),
+              _buildSkillCard('PHONETICS', _averageScores['pronunciation']!.toInt(), Icons.record_voice_over_outlined),
+            ],
           ),
-          const SizedBox(height: 40),
-        ],
-      ),
+        ),
+        const SizedBox(height: 40),
+      ],
     );
   }
 
@@ -341,56 +254,34 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final recent = _sessions.take(3).toList();
     final older  = _sessions.skip(3).take(3).toList();
     double recentAvg = 0, olderAvg = 0;
-    for (final s in recent) {
-      recentAvg += (s['composite_score'] as num?)?.toDouble() ?? 0;
-    }
-    for (final s in older) {
-      olderAvg += (s['composite_score'] as num?)?.toDouble() ?? 0;
-    }
+    for (final s in recent) recentAvg += (s['composite_score'] as num?)?.toDouble() ?? 0;
+    for (final s in older) olderAvg += (s['composite_score'] as num?)?.toDouble() ?? 0;
     return (recentAvg / recent.length) - (olderAvg / older.length);
   }
 
-  Widget _buildStatCard(
-    String emoji,
-    String label,
-    String value,
-    Color accent,
-  ) {
-    return GlassCard(
-      padding: const EdgeInsets.all(16),
+  Widget _buildStatCard(String emoji, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.borderLight),
+      ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.0, color: AppColors.textTertiary)),
+          const SizedBox(height: 6),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 22)),
-              const SizedBox(width: 8),
+              Text(emoji, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 6),
               Text(
                 value,
-                style: const TextStyle(
-                  color: AppColors.textDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: accent,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
           ),
         ],
       ),
@@ -399,13 +290,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   Widget _buildScoreTrendChart() {
     if (_sessions.length < 2) {
-      return const Center(
-        child: Text(
-          'Complete more sessions to see trends',
-          style: TextStyle(color: AppColors.textMedium, fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-      );
+      return const Center(child: Text('DATA SET MIN 2', style: TextStyle(fontFamily: 'monospace', fontSize: 10)));
     }
 
     final recentSessions = _sessions.take(10).toList().reversed.toList();
@@ -420,25 +305,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (v) => const FlLine(
-            color: AppColors.borderLight,
-            strokeWidth: 2,
-            dashArray: [5, 5],
-          ),
+          getDrawingHorizontalLine: (v) => const FlLine(color: AppColors.borderLight, strokeWidth: 1, dashArray: [4, 4]),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 32,
-              getTitlesWidget: (v, _) => Text(
-                '${v.toInt()}',
-                style: const TextStyle(
-                  color: AppColors.textMedium,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-              ),
+              reservedSize: 30,
+              getTitlesWidget: (v, _) => Text('${v.toInt()}', style: const TextStyle(color: AppColors.textTertiary, fontSize: 9, fontFamily: 'monospace')),
               interval: 25,
             ),
           ),
@@ -447,29 +321,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
           bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: (recentSessions.length - 1).toDouble(),
-        minY: 0,
-        maxY: 100,
+        minY: 0, maxY: 100,
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: AppColors.primary,
-            barWidth: 4,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-                radius: 6,
-                color: AppColors.primary,
-                strokeWidth: 3,
-                strokeColor: Colors.white,
-              ),
-            ),
+            color: Colors.white,
+            barWidth: 3,
+            dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Colors.white.withValues(alpha: 0.05),
             ),
           ),
         ],
@@ -477,18 +339,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
-  Widget _buildSkillCard(String label, int score, IconData icon, Color accent) {
+  Widget _buildSkillCard(String label, int score, IconData icon) {
     return Row(
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: accent.withValues(alpha: 0.5), width: 2),
-          ),
-          child: Icon(icon, color: accent, size: 24),
-        ),
+        Icon(icon, color: AppColors.textPrimary, size: 20),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -499,30 +353,22 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                   ),
                   Text(
-                    '$score/100',
-                    style: TextStyle(
-                      color: accent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    '$score',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: score / 100,
-                  minHeight: 10,
-                  backgroundColor: AppColors.borderLight,
-                  valueColor: AlwaysStoppedAnimation<Color>(accent),
+                  minHeight: 4,
+                  backgroundColor: Colors.white.withValues(alpha: 0.05),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
             ],

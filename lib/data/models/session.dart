@@ -31,6 +31,7 @@ class Session {
   final List<String> grammarCorrections;
   final List<String> improvementTips;
   final List<String> advancedVocabulary;
+  final List<String> pronunciationTips;
 
   Session({
     required this.sessionId,
@@ -52,6 +53,7 @@ class Session {
     this.grammarCorrections = const [],
     this.improvementTips = const [],
     this.advancedVocabulary = const [],
+    this.pronunciationTips = const [],
   });
 
   /// fromJson handles BOTH snake_case keys (from SQLite) and camelCase keys (from Firebase).
@@ -110,6 +112,9 @@ class Session {
       advancedVocabulary: (json['advanced_vocabulary'] != null)
           ? (jsonDecode(json['advanced_vocabulary'] as String) as List).cast<String>()
           : (json['advancedVocabulary'] != null ? (json['advancedVocabulary'] as List).cast<String>() : const []),
+      pronunciationTips: (json['pronunciation_tips'] != null)
+          ? (jsonDecode(json['pronunciation_tips'] as String) as List).cast<String>()
+          : (json['pronunciationTips'] != null ? (json['pronunciationTips'] as List).cast<String>() : const []),
     );
   }
 
@@ -172,6 +177,7 @@ class Session {
       'grammarCorrections': grammarCorrections,
       'improvementTips': improvementTips,
       'advancedVocabulary': advancedVocabulary,
+      'pronunciationTips': pronunciationTips,
     };
   }
 
@@ -203,6 +209,7 @@ class Session {
       'grammar_corrections': jsonEncode(grammarCorrections),
       'improvement_tips':    jsonEncode(improvementTips),
       'advanced_vocabulary': jsonEncode(advancedVocabulary),
+      'pronunciation_tips':  jsonEncode(pronunciationTips),
     };
   }
 
@@ -224,24 +231,32 @@ class Session {
     String? feedback,
     List<WordInfo>? wordResults,
     bool? synced,
+    List<String>? grammarCorrections,
+    List<String>? improvementTips,
+    List<String>? advancedVocabulary,
+    List<String>? pronunciationTips,
   }) {
     return Session(
-      sessionId: sessionId ?? this.sessionId,
-      userId: userId ?? this.userId,
-      type: type ?? this.type,
-      createdAt: createdAt ?? this.createdAt,
-      completedAt: completedAt ?? this.completedAt,
-      status: status ?? this.status,
-      promptId: promptId ?? this.promptId,
-      promptText: promptText ?? this.promptText,
-      audioLocalPath: audioLocalPath ?? this.audioLocalPath,
-      audioRemoteUrl: audioRemoteUrl ?? this.audioRemoteUrl,
-      audioDuration: audioDuration ?? this.audioDuration,
-      transcript: transcript ?? this.transcript,
-      scores: scores ?? this.scores,
-      feedback: feedback ?? this.feedback,
-      wordResults: wordResults ?? this.wordResults,
-      synced: synced ?? this.synced,
+      sessionId:          sessionId ?? this.sessionId,
+      userId:             userId ?? this.userId,
+      type:               type ?? this.type,
+      createdAt:          createdAt ?? this.createdAt,
+      completedAt:        completedAt ?? this.completedAt,
+      status:             status ?? this.status,
+      promptId:           promptId ?? this.promptId,
+      promptText:         promptText ?? this.promptText,
+      audioLocalPath:     audioLocalPath ?? this.audioLocalPath,
+      audioRemoteUrl:     audioRemoteUrl ?? this.audioRemoteUrl,
+      audioDuration:      audioDuration ?? this.audioDuration,
+      transcript:         transcript ?? this.transcript,
+      scores:             scores ?? this.scores,
+      feedback:           feedback ?? this.feedback,
+      wordResults:        wordResults ?? this.wordResults,
+      synced:             synced ?? this.synced,
+      grammarCorrections: grammarCorrections ?? this.grammarCorrections,
+      improvementTips:    improvementTips ?? this.improvementTips,
+      advancedVocabulary: advancedVocabulary ?? this.advancedVocabulary,
+      pronunciationTips:  pronunciationTips ?? this.pronunciationTips,
     );
   }
 }

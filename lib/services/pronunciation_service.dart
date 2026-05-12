@@ -16,21 +16,20 @@ class PronunciationResult {
 class PronunciationService {
   final LocalSttService _sttService = LocalSttService();
   
-  /// Assess pronunciation using Local Whisper confidence scores (100% Offline)
+  /// Assess pronunciation using precision word delta metrics and duration mapping.
   Future<PronunciationResult> assessPronunciation({
     required String audioPath,
     required String referenceText,
+    required double audioDurationSeconds,
   }) async {
     try {
       final res = await _sttService.transcribe(audioPath);
-      
-      // If referenceText is a general topic or very short compared to transcript,
-      // assume it's spontaneous and use the transcript as the reference.
+      final double duration = audioDurationSeconds > 0 ? audioDurationSeconds : 5.0; // fallback safety
+
       final isSpontaneous = referenceText.split(' ').length < 3 || 
                            referenceText.toLowerCase().contains('topic') ||
                            referenceText.toLowerCase().contains('general');
 
-      // Calculate accuracy base
       final effectiveReference = isSpontaneous ? res.transcript : referenceText;
 
       final accuracy = _calculateAccuracy(
@@ -38,10 +37,8 @@ class PronunciationService {
         effectiveReference,
       );
       
-      // Calculate fluency based on word confidence scores
-      final fluency = _calculateFluency(res.words);
+      final fluency = _calculateFluency(res.words, duration);
       
-      // Calculate completeness
       final completeness = isSpontaneous ? 100.0 : _calculateCompleteness(
         res.transcript,
         referenceText,
@@ -53,63 +50,84 @@ class PronunciationService {
         completenessScore: completeness,
       );
     } catch (e) {
-      // Return default scores on error
       return PronunciationResult(
-        accuracyScore: 70.0,
-        fluencyScore: 70.0,
-        completenessScore: 70.0,
+        accuracyScore: 65.0,
+        fluencyScore: 65.0,
+        completenessScore: 65.0,
       );
     }
   }
   
+  /// Optimized accuracy logic preventing duplication exploitation.
   double _calculateAccuracy(String transcript, String reference) {
-    // Normalize texts
-    final transcriptWords = transcript.toLowerCase().split(RegExp(r'\s+'));
-    final referenceWords = reference.toLowerCase().split(RegExp(r'\s+'));
+    final tx = transcript.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final ref = reference.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+
+    if (ref.isEmpty) return 70.0;
+    if (tx.isEmpty) return 0.0;
+
+    final txWords = tx.split(RegExp(r'\s+'));
+    final refWords = ref.split(RegExp(r'\s+'));
     
-    // Calculate word overlap
-    int matches = 0;
-    for (var word in transcriptWords) {
-      if (referenceWords.contains(word)) {
-        matches++;
+    int hits = 0;
+    final List<String> remainingRef = List.from(refWords);
+
+    for (var word in txWords) {
+      final idx = remainingRef.indexOf(word);
+      if (idx != -1) {
+        hits++;
+        remainingRef.removeAt(idx); // Consume to prevent duplicate farming exploit
       }
     }
     
-    if (referenceWords.isEmpty) return 70.0;
-    
-    // Score based on word match percentage
-    final matchPercentage = (matches / referenceWords.length) * 100;
-    return matchPercentage.clamp(0.0, 100.0);
+    // Penalty for excess garbage words
+    final double lengthRatio = (txWords.length / refWords.length).clamp(0.0, 2.0);
+    final double overflowPenalty = lengthRatio > 1.3 ? (lengthRatio - 1.3) * 20 : 0;
+
+    final rawAcc = (hits / refWords.length) * 100;
+    return (rawAcc - overflowPenalty).clamp(0.0, 100.0);
   }
   
-  double _calculateFluency(List<WordInfo> words) {
-    if (words.isEmpty) return 70.0;
+  /// Calculates authentic Fluency using Real Words-Per-Minute (WPM).
+  /// Ideal native speech is 110 - 160 WPM. Target 130 WPM for 100%.
+  double _calculateFluency(List<WordInfo> words, double durationSeconds) {
+    if (words.isEmpty || durationSeconds <= 0) return 50.0;
     
-    // Average word confidence from Whisper
-    final avgConfidence = words
-        .map((w) => w.confidence)
-        .reduce((a, b) => a + b) / words.length;
-    
-    // Convert to 0-100 scale
-    return (avgConfidence * 100).clamp(0.0, 100.0);
-  }
-  
-  double _calculateCompleteness(String transcript, String reference) {
-    final transcriptWords = transcript.split(RegExp(r'\s+'));
-    final referenceWords = reference.split(RegExp(r'\s+'));
-    
-    if (referenceWords.isEmpty) return 70.0;
-    
-    // Score based on word count ratio
-    final ratio = transcriptWords.length / referenceWords.length;
-    
-    // Ideal is 0.8-1.2 ratio (80-120% of expected length)
-    if (ratio >= 0.8 && ratio <= 1.2) {
-      return 90.0;
-    } else if (ratio >= 0.6 && ratio <= 1.4) {
-      return 75.0;
+    final double minutes = durationSeconds / 60.0;
+    final double wpm = words.length / minutes;
+
+    // Center metric: 130 WPM is perfect fluency limit for learner scoring.
+    double fluencyBase = 0.0;
+    if (wpm < 130) {
+      fluencyBase = (wpm / 130.0) * 100.0;
     } else {
-      return 60.0;
+      // Slight drop if speaking extremely hyper-fast (> 200 WPM) reducing clarity
+      fluencyBase = 100.0 - ((wpm - 130.0) * 0.2).clamp(0.0, 30.0);
     }
+
+    // Factor in general acoustic confidence from the voice parser model
+    final avgConf = words.isNotEmpty 
+      ? (words.map((w) => w.confidence).reduce((a, b) => a + b) / words.length) * 100 
+      : 75.0;
+
+    // Final result weighted 65% Speed consistency and 35% Acoustic confidence
+    return ((fluencyBase * 0.65) + (avgConf * 0.35)).clamp(10.0, 100.0);
+  }
+  
+  /// Precision linear completeness gradient.
+  double _calculateCompleteness(String transcript, String reference) {
+    final txWords = transcript.trim().split(RegExp(r'\s+')).length;
+    final refWords = reference.trim().split(RegExp(r'\s+')).length;
+    
+    if (refWords == 0) return 75.0;
+    
+    // Inverse-scale deviation map
+    final double ratio = txWords / refWords;
+    final double dev = (1.0 - ratio).abs();
+
+    // Perfectly matches ref length => 100. 
+    // Loses 1% completeness per 1% length deviation.
+    final double score = 100.0 - (dev * 100.0);
+    return score.clamp(0.0, 100.0);
   }
 }

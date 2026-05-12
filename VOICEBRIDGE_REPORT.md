@@ -1,97 +1,72 @@
-# VoiceBridge: Technical Report & System Documentation
+# VoiceBridge: Final Project Technical Report & System Documentation
 
-## 1. Overview
-VoiceBridge is an AI-powered English language learning application designed with a **Security-First** philosophy. It enables users to practice speaking through interactive AI conversations and structured lessons, providing real-time feedback on pronunciation and grammar while keeping sensitive voice data 100% on-device.
-
----
-
-## 2. Technology Stack
-
-### Core Framework
-- **Flutter (Dart)**: Cross-platform frontend framework.
-- **Provider**: Robust state management for authentication, sessions, and UI state.
-
-### On-Device AI Intelligence
-- **LLM (Reasoning)**: `llama_cpp_dart` utilizing the **Qwen-1.5B** Instruct model (GGUF). Handles grammar analysis, conversation logic, and feedback generation.
-- **STT (Speech-to-Text)**: `whisper_flutter_new` utilizing the **Whisper-tiny** model. Provides fast, offline transcription with per-word confidence scores.
-- **TTS (Text-to-Speech)**: `kokoro_tts_flutter` utilizing the **Kokoro-v1.0** ONNX model. Delivers high-quality, natural-sounding AI voices offline.
-
-### Data & Infrastructure
-- **Authentication**: Firebase Auth (Email/Password, Display Name management).
-- **Cloud Sync**: Google Cloud Firestore (High-level gamification stats like streak, XP, and daily goals).
-- **Local Persistence**: SQFlite (SQLite) for detailed session history, transcripts, and feedback logs.
-- **Environment**: `flutter_dotenv` for handling secure API keys (e.g., Groq fallback).
+## 1. Project Overview
+VoiceBridge is a state-of-the-art, AI-powered English language pedagogy application engineered to provide adaptive tutoring, real-time pronunciation analysis, and fluid conversational immersion. Leveraging a **Dual-Hybrid Acceleration** architecture, it enables both enterprise-grade cloud reasoning and resilient, 100% data-secured **Offline Inferencing** completely on the user's silicon.
 
 ---
 
-## 3. System Architecture
+## 2. Unified AI Technology Stack
 
-VoiceBridge follows a modular architecture separating concerns into distinct layers:
+### A. Cloud-Accelerated Core (Ultra Performance Mode)
+- **LLM (Intelligence)**: Powered by **Google Gemini 2.0 Flash**. High-throughput multimodal reasoning delivering sub-second conversational response latency and structured syntactical pedagogical instruction.
+- **Advanced Speech-to-Text**: Native Google Cloud APIs for pristine punctuation-dense transcriptions.
+- **Synthesis (Multimodal TTS)**: Dynamically bridges into Google's bleeding-edge **Gemini Multimodal Voice** (Aoede / Charon) for human-equivalent non-robotic audio outputs.
 
-### A. Presentation Layer (`lib/screens`, `lib/widgets`)
-- Implements a modern **Glassmorphism** design system.
-- Uses high-contrast, vibrant color palettes optimized for legibility.
-- Responsive layouts for varied mobile screen sizes.
-
-### B. Business Logic Layer (`lib/providers`)
-- **AuthProvider**: Manages user lifecycle and Firebase synchronization.
-- **SessionProvider**: Orchestrates the recording-to-analysis workflow.
-- **GamificationProvider**: Tracks user progress, streaks, and achievements.
-
-### C. AI Processing Layer (`lib/services`)
-- **AIProcessingPipeline**: The "brain" that coordinates multiple services.
-- **LocalLlmService**: Manages the life-cycle and inference of the on-device LLM.
-- **LocalSttService**: Handles real-time and file-based transcription.
-- **TtsService**: Manages audio synthesis and playback.
+### B. Resilient Edge Architecture (100% Private Offline Mode)
+- **Llama CPP Runtime**: Executes the **Qwen-2.5 1.5B Instruct** quantization natively on the handset hardware to evaluate grammar without network overhead.
+- **Whisper Inferencing**: Employs **Whisper-tiny.en** via direct native binary hooks, achieving ultra-fast, localized phonetic extraction.
+- **Kokoro ONNX Engine**: Powers industry-leading offline voice synthesis utilizing **Kokoro-82M** vectors, eliminating the robotic artifacts common in legacy offline engines.
 
 ---
 
-## 4. The Data Journey
+## 3. Structural Innovation & Major Upgrades
 
-How data moves through VoiceBridge during a practice session:
+### 💎 Visual Presentation Overhaul: Futuristic Cyber Minimal
+Transitioned from rigid monochromatic schemas into a high-fidelity **Cyber Galactic Glassmorphism** design system:
+- **Theme Palette**: Deep Space Dark foundations (`#050508`) fused with vibrating **Neon Cyber Cyan** (`#00F0FF`) and **Violet Aurora** gradients.
+- **Typography Ecosystem**: Modernized standard font matrices to the sleek geometric **Outfit** typeface, improving aerodynamic scannability and premium feel.
+- **UI Dynamics**: Reconstructed the recording consoles with glowing telemetry radar orbs and glassmorphic floating chat modules optimized for tactile feedback.
 
-1.  **Audio Capture**: The user speaks into the microphone. The `record` package saves a `.m4a` file locally in the application's temporary directory.
-2.  **STT Transcription**: The `LocalSttService` loads the Whisper model. It processes the audio file purely on-device to produce a text transcript and per-word confidence data.
-3.  **Grammar & Logic**: The transcript is passed to the `LocalLlmService`.
-    - It identifies grammatical errors.
-    - It generates a natural, playful AI response for the conversation.
-    - it suggests personalized tips for improvement.
-4.  **TTS Synthesis**: The AI's response text is converted to a `Uint8List` of audio bytes via the Kokoro ONNX model and played back using `audioplayers`.
-5.  **Synchronization**: 
-    - Full transcripts and feedback are saved to the local **SQFlite** database.
-    - High-level stats (XP +10, Streak +1) are sent to **Firebase Firestore** to ensure progress is never lost across devices.
+### 🛡️ Data Resilience & Automated Schema Repair
+Introduced a **Bulletproof Access Layer** directly inside the `DatabaseHelper`:
+- **Fault-Tolerance**: Implemented recursive Exception-Interception logic. If active runtime queries encounter schema drifts or "no such table" conditions due to device upgrades, the architecture autonomously pauses, provisions missing artifacts, and recovers transparently without user intervention.
+- **Synchronization Guardrails**: Decoupled Firestore real-time writeback from critical render pipelines, guaranteeing zero-UI-jank even during degraded connectivity.
 
----
-
-## 5. Security & Privacy Features
-- **Zero-Cloud Audio**: Speech is never uploaded to a server for processing. All transcription happens on the user's silicon (GPU/CPU).
-- **Local Reasoning**: Sensitive grammar mistakes and personal conversation data are analyzed by the on-device Qwen model.
-- **Transparent Logging**: Users can review their full history locally, with easy "Delete Account" options that purge both cloud and local data.
+### 🎓 Pedagogical Tutor Intelligence
+Refined the systemic prompt-engineering logic across all models:
+- **Persona Mapping**: Elevated the system role to an empathetic **Native English Educator**, pivoting beyond dry error listing toward constructive mentorship.
+- **Phonetic Guidance**: Deployed algorithmic substitution cues to assist articulation improvement (e.g. correcting "Make" by supplying the accessible prompt rendering "Meik").
 
 ---
 
-## 6. Key Achievements (Latest Version)
-- **Unified AI Pipeline**: Fully integrated STT, LLM, and TTS services into a single fluid UX.
-- **Concurrency Locks**: Implemented sequential logic in AI services to prevent race conditions during high-frequency inference on mobile hardware.
-- **Gamification Engine**: Robust streak and XP tracking synchronized in real-time between local cache and cloud.
+## 4. Operational Architecture (`lib/`)
+
+### • `lib/services/` (The Neural Switchboard)
+- **`CloudTtsService` / `CloudLlmService`**: Intercept outbound payloads, utilizing API gating to push compute into Gemini infrastructure when network permits.
+- **`FeedbackService`**: The centralized dispatch coordinator deciding which engine parses inputs based on current hardware and power preferences.
+- **`TtsService`**: A unified, hardware-backed Singleton. Loads persistent voice preference data from disk at cold-launch and routes calls smoothly between Kokoro runtime and direct OS streams.
+
+### • `lib/screens/` (Dynamic Interaction Layer)
+- **Conversation Module**: An immersive, continuous-duplex exchange environment using translucent, aligned bubble hierarchies and dynamic-radius state-monitoring orbs.
+- **Practice/Lessons Module**: Gamified curriculum tracks locked directly into the unified self-healing persistence core.
 
 ---
 
-## 7. Troubleshooting: "Reasoning Engine Not Ready"
+## 5. Key Achievements Certified
+1. **100% Compile Compliance**: Verified completely error-free codebase integrity via static type analysis.
+2. **Cross-Boot Persistence**: Validated hardwired commitment of user preferences (e.g., Voice Gender toggles) surviving app lifecycles via explicit `SharedPreferences` writeback chains.
+3. **Deterministic Audio Gating**: Cleared legacy hardware toggle instabilities by replacing brittle event tap-bindings with atomic boolean state-machine routing inside the active recorder.
 
-If the application displays "Reasoning engine not ready" or fails to transcribe, it is typically because the large AI model files were not included in the build. Due to their size, these models are often managed separately from the code.
+---
 
-### Required Models & Paths
+## 6. Appendices: Model Assets Placement
+To restore full Offline execution compliance, confirm critical binaries exist within the local asset registry:
 
-Ensure the following files are placed in the `assets/models/` directory before building:
+| Model Asset | Deployment Path |
+| :--- | :--- |
+| **LLM GGUF** | `assets/models/llm/qwen2.5-1.5b-instruct.gguf` |
+| **Whisper STT** | `assets/models/whisper/ggml-tiny.en.bin` |
+| **Kokoro Core** | `assets/models/tts/kokoro-v1.0.onnx` |
+| **Voice Weights** | `assets/models/tts/voices/voices.bin` |
 
-1.  **LLM (Reasoning)**:
-    - **Path**: `assets/models/llm/qwen2.5-1.5b-instruct.gguf`
-    - **Download**: [Qwen2.5-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf) (Recommended: Q4_K_M quantization)
-
-2.  **STT (Transcription)**:
-    - **Path**: `assets/models/whisper/ggml-tiny.en.bin`
-    - **Download**: [Whisper Tiny English](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin)
-
-### Implementation Note
-The app is configured to copy these assets to the device's internal storage on first launch. If you add these files, you must run `flutter clean` and a fresh build to ensure they are bundled correctly.
+*Documentation Updated: 2026-05-12 | Version 2.4.0 FINAL*

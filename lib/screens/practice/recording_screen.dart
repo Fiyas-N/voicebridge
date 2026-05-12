@@ -1,4 +1,4 @@
-import 'package:flutter_neumorphic_plus/flutter_neumorphic.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:provider/provider.dart';
@@ -10,7 +10,6 @@ import '../../providers/session_provider.dart' show SessionProvider, PipelineSta
 import '../../services/local_llm_service.dart';
 import '../../widgets/common/animated_button.dart';
 import 'feedback_screen.dart';
-
 
 class RecordingScreen extends StatefulWidget {
   final Prompt prompt;
@@ -28,8 +27,7 @@ class RecordingScreen extends StatefulWidget {
   State<RecordingScreen> createState() => _RecordingScreenState();
 }
 
-class _RecordingScreenState extends State<RecordingScreen>
-    with TickerProviderStateMixin {
+class _RecordingScreenState extends State<RecordingScreen> with TickerProviderStateMixin {
   bool _showReview = false;
   bool _isSubmitting = false;
   late AnimationController _pulseController;
@@ -38,16 +36,8 @@ class _RecordingScreenState extends State<RecordingScreen>
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(
-        parent: _pulseController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    _pulseController = AnimationController(duration: const Duration(milliseconds: 1500), vsync: this);
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
   }
 
   @override
@@ -59,25 +49,19 @@ class _RecordingScreenState extends State<RecordingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Consumer<SessionProvider>(
-          builder: (context, sessionProvider, _) {
-            if (sessionProvider.isRecording && !_pulseController.isAnimating) {
+          builder: (context, sp, _) {
+            if (sp.isRecording && !_pulseController.isAnimating) {
               _pulseController.repeat(reverse: true);
-            } else if (!sessionProvider.isRecording &&
-                _pulseController.isAnimating) {
+            } else if (!sp.isRecording && _pulseController.isAnimating) {
               _pulseController.stop();
               _pulseController.reset();
             }
 
-            if (_showReview && !sessionProvider.isRecording) {
-              return _buildReviewScreen(sessionProvider);
-            }
-
-            if (sessionProvider.isRecording) {
-              return _buildRecordingScreen(sessionProvider);
-            }
-
+            if (_showReview && !sp.isRecording) return _buildReviewScreen(sp);
+            if (sp.isRecording) return _buildRecordingScreen(sp);
             return _buildPromptScreen();
           },
         ),
@@ -86,417 +70,215 @@ class _RecordingScreenState extends State<RecordingScreen>
   }
 
   Widget _buildPromptScreen() {
-    return CustomScrollView(
+    return ListView(
       physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverAppBar(
-          expandedHeight: 100,
-          floating: false,
-          pinned: true,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          flexibleSpace: FlexibleSpaceBar(
-            background: Container(
-              color: AppColors.secondary, // Solid vibrant background
-              child: SafeArea(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        widget.isBaseline
-                            ? 'Baseline Assessment'
-                            : 'Practice Session',
-                        style:
-                            Theme.of(context).textTheme.displaySmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                      Text(
-                        'Part ${widget.prompt.ieltsPartNumber} · ${widget.prompt.category}',
-                        style:
-                            Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                      ),
-                    ],
+      padding: const EdgeInsets.all(24),
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20), onPressed: () => Navigator.pop(context)),
+            Text(widget.isBaseline ? 'BASELINE_INIT' : 'PRACTICE_FLOW', style: const TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textTertiary)),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: Column(
+            children: [
+              Text('PROMPT STATEMENT'.toUpperCase(), style: const TextStyle(fontSize: 9, color: AppColors.textTertiary, fontWeight: FontWeight.bold, letterSpacing: 2)),
+              const SizedBox(height: 24),
+              Text(
+                widget.prompt.text,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12)),
+                child: Text(widget.prompt.category.toUpperCase(), style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.white70)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 40),
+        const Text('INSTRUCTIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textTertiary)),
+        const SizedBox(height: 16),
+        _buildCleanTip('Find optimal silent conditions'),
+        _buildCleanTip('Deliver continuous responses'),
+        _buildCleanTip('Duration limit: 45-60 seconds'),
+        const SizedBox(height: 60),
+        Center(
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: _startRecording,
+                child: Container(
+                  width: 100, height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                  ),
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: 80, height: 80,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.mic, color: Colors.black, size: 32),
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Neumorphic(
-                  style: NeumorphicStyle(
-                    shape: NeumorphicShape.flat,
-                    boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(20)),
-                    depth: 6,
-                    intensity: 0.65,
-                    color: AppColors.backgroundOffWhite,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.chat_bubble_outline,
-                          size: 48,
-                          color: AppColors.secondary,
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          widget.prompt.text,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-                Text(
-                  '💡 Recording Tips',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Neumorphic(
-                  style: NeumorphicStyle(
-                    shape: NeumorphicShape.flat,
-                    boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(20)),
-                    depth: 4,
-                    intensity: 0.6,
-                    color: AppColors.backgroundOffWhite,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        _buildTip('Speak for 30-60 seconds'),
-                        const SizedBox(height: 12),
-                        _buildTip('Speak naturally and clearly'),
-                        const SizedBox(height: 12),
-                        _buildTip('Don\'t worry about mistakes'),
-                        const SizedBox(height: 12),
-                        _buildTip('Find a quiet environment'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 60),
-                Center(
-                  child: Column(
-                    children: [
-                      NeumorphicButton(
-                        onPressed: _startRecording,
-                        style: const NeumorphicStyle(
-                          shape: NeumorphicShape.convex,
-                          boxShape: NeumorphicBoxShape.circle(),
-                          depth: 10,
-                          intensity: 0.85,
-                          color: AppColors.secondary,
-                        ),
-                        padding: EdgeInsets.zero,
-                        child: const SizedBox(
-                          width: 120,
-                          height: 120,
-                          child: Icon(
-                            Icons.mic,
-                            size: 56,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Tap to Start Recording',
-                        style:
-                            Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
-            ),
+              const SizedBox(height: 20),
+              const Text('START TRANSMISSION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildRecordingScreen(SessionProvider sessionProvider) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.05),
-      ),
-      child: Column(
+  Widget _buildCleanTip(String t) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: AppColors.error,
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Row(
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withValues(alpha: 0.5),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Recording...',
-                    style:
-                        Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: 200 * _pulseAnimation.value,
-                            height: 200 * _pulseAnimation.value,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.error.withValues(
-                                  alpha: 0.3 * (1 - (_pulseAnimation.value - 1) / 0.3),
-                                ),
-                                width: 4,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 160,
-                            height: 160,
-                            decoration: const BoxDecoration(
-                              color: AppColors.error,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.mic,
-                              size: 80,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 60),
-                  Text(
-                    Formatters.formatDuration(sessionProvider.recordingDuration),
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          fontSize: 64,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.error,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '/ ${widget.isBaseline ? "00:45" : "01:00"}',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AppColors.textMedium,
-                        ),
-                  ),
-                  const Spacer(),
-                  AnimatedButton(
-                    text: 'Stop Recording',
-                    icon: Icons.stop,
-                    width: double.infinity,
-                    backgroundColor: AppColors.error,
-                    onPressed: _stopRecording,
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ),
+          const Icon(Icons.radio_button_unchecked, size: 14, color: Colors.white38),
+          const SizedBox(width: 12),
+          Expanded(child: Text(t.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70, letterSpacing: 0.5))),
         ],
       ),
     );
   }
 
-  Widget _buildReviewScreen(SessionProvider sessionProvider) {
-    final session = sessionProvider.currentSession;
-    if (session == null) return const SizedBox();
-
-    // Show pipeline-aware loading overlay while processing
-    if (_isSubmitting) {
-      return _buildProcessingOverlay(sessionProvider.pipelineStage);
-    }
-
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverAppBar(
-          expandedHeight: 100,
-          floating: false,
-          pinned: true,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          flexibleSpace: FlexibleSpaceBar(
-            background: Container(
-              color: AppColors.success,
-              child: SafeArea(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Review Your Recording',
-                        style:
-                            Theme.of(context).textTheme.displayMedium?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                      ),
-                    ],
-                  ),
+  Widget _buildRecordingScreen(SessionProvider sp) {
+    return Column(
+      children: [
+        const SizedBox(height: 40),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(color: AppColors.accentRed.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.fiber_manual_record, color: AppColors.accentRed, size: 14),
+              SizedBox(width: 8),
+              Text('LIVE RECORDING', style: TextStyle(fontFamily: 'monospace', color: AppColors.accentRed, fontWeight: FontWeight.bold, fontSize: 10)),
+            ],
+          ),
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: _stopRecording,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (ctx, ch) => Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 180 * _pulseAnimation.value, height: 180 * _pulseAnimation.value,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.accentRed.withValues(alpha: 0.2))),
                 ),
-              ),
+                Container(
+                  width: 140, height: 140,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.accentRed),
+                  child: const Icon(Icons.stop_rounded, color: Colors.white, size: 48),
+                ),
+              ],
             ),
           ),
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Neumorphic(
-                  style: NeumorphicStyle(
-                    shape: NeumorphicShape.flat,
-                    boxShape: NeumorphicBoxShape.roundRect(BorderRadius.circular(20)),
-                    depth: 6,
-                    intensity: 0.7,
-                    color: AppColors.success,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.check_circle, size: 80, color: Colors.white),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Recording Complete!',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Duration: ${Formatters.formatDuration(session.audioDuration ?? 0)}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  onPressed: () => sessionProvider.playCurrentRecording(),
-                  icon: const Icon(Icons.play_arrow, size: 24),
-                  label: const Text('Play Recording'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-                const SizedBox(height: 60),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          sessionProvider.clearCurrentSession();
-                          setState(() {
-                            _showReview = false;
-                          });
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Re-record'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: AnimatedButton(
-                        text: 'Submit',
-                        icon: Icons.send,
-                        onPressed: () => _submitRecording(
-                          sessionProvider,
-                          Provider.of<AuthProvider>(context, listen: false),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
+        const SizedBox(height: 60),
+        Text(
+          Formatters.formatDuration(sp.recordingDuration),
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 64, fontWeight: FontWeight.bold),
+        ),
+        const Text('SYSTEM CLOCK ACTIVE', style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: AppColors.textTertiary)),
+        const Spacer(),
+        Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: AnimatedButton(
+            text: 'TERMINATE RECORDING',
+            onPressed: _stopRecording,
+            backgroundColor: Colors.transparent,
+            textColor: AppColors.accentRed,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTip(String text) {
-    return Row(
+  Widget _buildReviewScreen(SessionProvider sp) {
+    final s = sp.currentSession;
+    if (s == null) return const SizedBox();
+    if (_isSubmitting) return _buildProcessingOverlay(sp.pipelineStage);
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
       children: [
-        const Icon(Icons.check_circle, size: 20, color: AppColors.primary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.bodyMedium,
+        const SizedBox(height: 40),
+        const Text('ARCHIVE VALIDATED', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: AppColors.textTertiary, fontWeight: FontWeight.bold, letterSpacing: 2)),
+        const SizedBox(height: 40),
+        Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(32), border: Border.all(color: AppColors.borderLight)),
+          child: Column(
+            children: [
+              const Icon(Icons.check_circle_outline, size: 64, color: Colors.white),
+              const SizedBox(height: 24),
+              const Text('DATA CAPTURED', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              const SizedBox(height: 8),
+              Text('LEN: ${Formatters.formatDuration(s.audioDuration ?? 0)}', style: const TextStyle(fontFamily: 'monospace', color: AppColors.textTertiary, fontSize: 12)),
+            ],
           ),
+        ),
+        const SizedBox(height: 40),
+        GestureDetector(
+          onTap: () => sp.playCurrentRecording(),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.play_arrow, color: Colors.black),
+                SizedBox(width: 8),
+                Text('PREVIEW OUTPUT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  sp.clearCurrentSession();
+                  setState(() => _showReview = false);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  decoration: BoxDecoration(border: Border.all(color: AppColors.borderLight), borderRadius: BorderRadius.circular(24)),
+                  alignment: Alignment.center,
+                  child: const Text('RE-RECORD', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 12)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: AnimatedButton(
+                text: 'RUN ANALYTICS',
+                onPressed: () => _submitRecording(sp, Provider.of<AuthProvider>(context, listen: false)),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -504,179 +286,79 @@ class _RecordingScreenState extends State<RecordingScreen>
 
   Future<void> _startRecording() async {
     try {
-      final sessionProvider =
-          Provider.of<SessionProvider>(context, listen: false);
-      await sessionProvider.startRecording(
-        widget.prompt,
-        widget.userId,
-        isBaseline: widget.isBaseline,
-      );
-
-      // Pre-warm Gemma while the user is speaking.
-      // User typically speaks 5–30 seconds — plenty of time to load the
-      // model into GPU memory so there is no cold-start wait after STT.
+      final sp = Provider.of<SessionProvider>(context, listen: false);
+      await sp.startRecording(widget.prompt, widget.userId, isBaseline: widget.isBaseline);
       LocalLlmService().warmLoad();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            elevation: 0,
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.transparent,
-            content: AwesomeSnackbarContent(
-              title: 'Recording Error',
-              message: '$e',
-              contentType: ContentType.failure,
-            ),
-          ));
-      }
+      if (mounted) _snack('Error', '$e');
     }
   }
 
   Future<void> _stopRecording() async {
     try {
-      final sessionProvider =
-          Provider.of<SessionProvider>(context, listen: false);
-      await sessionProvider.stopRecording();
+      await Provider.of<SessionProvider>(context, listen: false).stopRecording();
       setState(() => _showReview = true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            elevation: 0,
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.transparent,
-            content: AwesomeSnackbarContent(
-              title: 'Oops',
-              message: '$e',
-              contentType: ContentType.failure,
-            ),
-          ));
-        final sessionProvider =
-            Provider.of<SessionProvider>(context, listen: false);
-        sessionProvider.clearCurrentSession();
+        _snack('Failure', '$e');
+        Provider.of<SessionProvider>(context, listen: false).clearCurrentSession();
       }
     }
   }
 
-  Future<void> _submitRecording(
-      SessionProvider sessionProvider, AuthProvider authProvider) async {
+  Future<void> _submitRecording(SessionProvider sp, AuthProvider auth) async {
     setState(() => _isSubmitting = true);
     try {
-      _startPipelineAndNavigate(sessionProvider, authProvider);
+      sp.submitRecording(auth).catchError((e) {
+        setState(() => _isSubmitting = false);
+        if (mounted) _snack('Fault', '$e');
+      });
+      _waitAndNavigate(sp, auth);
     } catch (e) {
       setState(() => _isSubmitting = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            elevation: 0,
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.transparent,
-            content: AwesomeSnackbarContent(
-              title: 'Submit Failed',
-              message: '$e',
-              contentType: ContentType.failure,
-            ),
-          ));
-      }
+      if (mounted) _snack('Submit Error', '$e');
     }
   }
 
-  void _startPipelineAndNavigate(
-      SessionProvider sessionProvider, AuthProvider authProvider) {
-    // Start the async pipeline — don't await here so we can react to
-    // intermediate state changes immediately.
-    sessionProvider.submitRecording(authProvider).catchError((e) {
-      setState(() => _isSubmitting = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(
-            elevation: 0,
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.transparent,
-            content: AwesomeSnackbarContent(
-              title: 'Pipeline Error',
-              message: '$e',
-              contentType: ContentType.failure,
-            ),
-          ));
-      }
-    });
-
-    // Poll for transcript availability, then navigate forward.
-    // The pipeline notifies listeners when earlyTranscript is set.
-    _waitForTranscriptThenNavigate(sessionProvider, authProvider);
-  }
-
-  Future<void> _waitForTranscriptThenNavigate(
-      SessionProvider sessionProvider, AuthProvider authProvider) async {
-    // Wait until STT finishes (stage transitions to 'analyzing' or beyond).
-    while (mounted &&
-        sessionProvider.pipelineStage == PipelineStage.transcribing) {
+  Future<void> _waitAndNavigate(SessionProvider sp, AuthProvider auth) async {
+    while (mounted && sp.pipelineStage == PipelineStage.transcribing) {
       await Future.delayed(const Duration(milliseconds: 150));
     }
-
     if (!mounted) return;
-
-    if (sessionProvider.earlyTranscript != null &&
-        sessionProvider.currentSession != null) {
-      // Navigate immediately — FeedbackScreen will stream the rest.
+    if (sp.earlyTranscript != null && sp.currentSession != null) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => FeedbackScreen(
-            session: sessionProvider.currentSession!,
-            isBaseline: widget.isBaseline,
-            feedbackStream: sessionProvider.feedbackStream,
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => FeedbackScreen(session: sp.currentSession!, isBaseline: widget.isBaseline, feedbackStream: sp.feedbackStream)),
       );
     }
   }
 
-  // ── Processing overlay — shown while pipeline runs ───────────────────────
-  Widget _buildProcessingOverlay(PipelineStage stage) {
-    final String label;
-    final Widget spinner;
+  void _snack(String t, String m) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        elevation: 0, behavior: SnackBarBehavior.floating, backgroundColor: Colors.transparent,
+        content: AwesomeSnackbarContent(title: t, message: m, contentType: ContentType.failure),
+      ));
+  }
 
+  Widget _buildProcessingOverlay(PipelineStage stage) {
+    final String lbl;
     switch (stage) {
-      case PipelineStage.transcribing:
-        label = 'Transcribing your speech…';
-        spinner = const SpinKitPulse(color: AppColors.primary, size: 64);
-        break;
-      case PipelineStage.analyzing:
-        label = 'Analysing grammar & pronunciation…';
-        spinner = const SpinKitThreeBounce(color: AppColors.secondary, size: 40);
-        break;
-      case PipelineStage.generating:
-        label = 'Generating AI coaching feedback…';
-        spinner = const SpinKitWave(color: AppColors.primary, size: 40, itemCount: 5);
-        break;
-      default:
-        label = 'Processing…';
-        spinner = const SpinKitRing(color: AppColors.primary, size: 60, lineWidth: 4);
+      case PipelineStage.transcribing: lbl = 'DECODING AUDIO SIGNAL'; break;
+      case PipelineStage.analyzing: lbl = 'COMPUTING LINGUISTIC DATA'; break;
+      case PipelineStage.generating: lbl = 'CONSTRUCTING AI FEEDBACK'; break;
+      default: lbl = 'PROCESSING SEQUENCE';
     }
 
     return Container(
-      color: AppColors.backgroundOffWhite,
+      color: Colors.black,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            spinner,
+            const SpinKitDoubleBounce(color: Colors.white, size: 64),
             const SizedBox(height: 32),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(lbl, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', fontWeight: FontWeight.bold, letterSpacing: 2, color: Colors.white)),
           ],
         ),
       ),

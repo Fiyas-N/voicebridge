@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/local_llm_service.dart';
+import '../../core/theme/app_theme.dart';
 
-/// Shown on first launch when the Gemma 3 1B model needs to be downloaded.
+/// Shown on first launch when the local AI model needs to be downloaded.
 /// Displays real-time download progress and auto-navigates when complete.
 class ModelSetupScreen extends StatefulWidget {
   /// Called when setup is complete (model installed + ready).
@@ -33,15 +33,15 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
 
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _pulseAnim = Tween<double>(begin: 0.88, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutCubic),
     );
 
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
     _fadeController.forward();
@@ -69,7 +69,7 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
       setState(() => _isDone = true);
 
       // Short pause so users see the 100% completion state
-      await Future.delayed(const Duration(milliseconds: 1200));
+      await Future.delayed(const Duration(milliseconds: 1500));
       if (mounted) widget.onComplete();
     } catch (e) {
       if (!mounted) return;
@@ -84,26 +84,23 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
+      backgroundColor: AppColors.background,
       body: FadeTransition(
         opacity: _fadeAnim,
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            padding: const EdgeInsets.all(32),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Spacer(),
-                _buildLogo(),
-                const SizedBox(height: 40),
-                _buildTitle(),
-                const SizedBox(height: 16),
-                _buildSubtitle(),
+                _buildVisualCore(),
                 const SizedBox(height: 56),
-                _buildProgressSection(),
+                _buildStatusText(),
+                const SizedBox(height: 64),
+                _buildActiveModule(),
                 const Spacer(),
-                _buildFootnote(),
-                const SizedBox(height: 16),
+                _buildFooterTelemetry(),
               ],
             ),
           ),
@@ -113,228 +110,246 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
   }
 
   // --------------------------------------------------------------------------
-  // Sections
+  // Functional Modules
   // --------------------------------------------------------------------------
 
-  Widget _buildLogo() {
-    return AnimatedBuilder(
-      animation: _pulseAnim,
-      builder: (context, child) => Transform.scale(
-        scale: _pulseAnim.value,
-        child: child,
-      ),
-      child: Container(
-        width: 100,
-        height: 100,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF7C3AED), Color(0xFF4F46E5)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
-              blurRadius: 32,
-              spreadRadius: 4,
+  Widget _buildVisualCore() {
+    return Center(
+      child: AnimatedBuilder(
+        animation: _pulseAnim,
+        builder: (context, child) {
+          return Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 1,
+              ),
             ),
-          ],
+            alignment: Alignment.center,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15 + (0.2 * (1 - _pulseAnim.value))),
+                  width: 1,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Transform.scale(
+                scale: _pulseAnim.value,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: Icon(
+                    _isDone ? Icons.check : Icons.blur_on_sharp,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatusText() {
+    return Column(
+      children: [
+        Text(
+          _isDone ? 'ASSET_LOCK_STABLE' : 'SYNCHRONIZING_MODULE',
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+            letterSpacing: 2.0,
+            color: AppColors.textSecondary,
+          ),
         ),
-        child: const Icon(Icons.psychology_rounded, color: Colors.white, size: 52),
-      ),
+        const SizedBox(height: 16),
+        Text(
+          _isDone ? 'QWEN_0.6B READY' : 'PULLING QWEN3 CORE',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildTitle() {
-    return Text(
-      'Setting up AI Engine',
-      style: GoogleFonts.outfit(
-        fontSize: 26,
-        fontWeight: FontWeight.w700,
-        color: Colors.white,
-        letterSpacing: -0.5,
-      ),
-      textAlign: TextAlign.center,
-    );
+  Widget _buildActiveModule() {
+    if (_error != null) return _buildErrorBox();
+    if (_isDone) return _buildSuccessSequence();
+    return _buildDownloadingMatrix();
   }
 
-  Widget _buildSubtitle() {
-    return Text(
-      'Preparing Gemma 3 1B — your private, on-device language model.\nThis one-time setup takes about a minute.',
-      style: GoogleFonts.outfit(
-        fontSize: 14,
-        color: Colors.white.withValues(alpha: 0.55),
-        height: 1.6,
-      ),
-      textAlign: TextAlign.center,
-    );
-  }
-
-  Widget _buildProgressSection() {
-    if (_error != null) return _buildErrorState();
-    if (_isDone) return _buildDoneState();
-    return _buildDownloadProgress();
-  }
-
-  Widget _buildDownloadProgress() {
+  Widget _buildDownloadingMatrix() {
     final double fraction = _progress / 100.0;
     return Column(
       children: [
-        // Percent label
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Preparing…',
-              style: GoogleFonts.outfit(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 13,
+            const Text(
+              'BUFFR_SEQ //',
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textTertiary,
               ),
             ),
             Text(
-              '$_progress%',
-              style: GoogleFonts.outfit(
-                color: const Color(0xFF7C3AED),
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
+              '${_progress.toString().padLeft(2, '0')}%',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        // Progress bar
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: fraction,
-            minHeight: 10,
-            backgroundColor: Colors.white.withValues(alpha: 0.08),
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF7C3AED)),
-          ),
-        ),
-        const SizedBox(height: 28),
-        // Stats row
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _statChip(Icons.storage_rounded, '~529 MB'),
-            const SizedBox(width: 12),
-            _statChip(Icons.wifi_off_rounded, '100% Offline'),
-            const SizedBox(width: 12),
-            _statChip(Icons.lock_rounded, 'On-device'),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDoneState() {
-    return Column(
-      children: [
+        const SizedBox(height: 16),
         Container(
-          width: 72,
-          height: 72,
+          height: 6,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.green.withValues(alpha: 0.15),
+            color: AppColors.surface,
+            border: Border.all(color: AppColors.borderLight),
           ),
-          child: const Icon(Icons.check_circle_rounded,
-              color: Colors.greenAccent, size: 42),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'Gemma 3 1B Ready!',
-          style: GoogleFonts.outfit(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Starting VoiceBridge…',
-          style: GoogleFonts.outfit(
-            fontSize: 13,
-            color: Colors.white.withValues(alpha: 0.5),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Column(
-      children: [
-        const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
-        const SizedBox(height: 16),
-        Text(
-          'Setup failed',
-          style: GoogleFonts.outfit(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: Colors.redAccent,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Could not prepare the AI model.\nPlease try again.',
-          style: GoogleFonts.outfit(
-            fontSize: 13,
-            color: Colors.white.withValues(alpha: 0.5),
-            height: 1.5,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          onPressed: _startDownload,
-          icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Try Again'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF7C3AED),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: fraction.clamp(0.0, 1.0),
+            child: Container(
+              color: Colors.white,
             ),
           ),
         ),
+        const SizedBox(height: 40),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _techChip('PAYLOAD // 614MB'),
+            _techChip('CHANNEL // OFFLINE'),
+            _techChip('STATUS // ACTIVE'),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _buildFootnote() {
-    return Text(
-      '🔒 Your audio never leaves your device.\nGemma runs 100% offline — no internet needed.',
-      style: GoogleFonts.outfit(
-        fontSize: 12,
-        color: Colors.white.withValues(alpha: 0.35),
-        height: 1.6,
+  Widget _buildSuccessSequence() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        children: const [
+          Text(
+            'BOOT SEQUENCE INITIALIZED…',
+            style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.textTertiary),
+          ),
+        ],
       ),
-      textAlign: TextAlign.center,
     );
   }
 
-  Widget _statChip(IconData icon, String label) {
+  Widget _buildErrorBox() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.accentRed.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'ERR_FATAL_TRANSFER',
+            style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, color: AppColors.accentRed, letterSpacing: 1.5, fontSize: 10),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _error ?? 'Unknown packet loss.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: _startDownload,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: const Text(
+                'RESTART_QUEUE',
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'monospace', fontSize: 11, letterSpacing: 1),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _techChip(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.borderLight),
+        borderRadius: BorderRadius.circular(4),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.bold,
+          fontSize: 9,
+          color: Colors.white54,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooterTelemetry() {
+    return Center(
+      child: Column(
         children: [
-          Icon(icon, size: 14, color: const Color(0xFF7C3AED)),
-          const SizedBox(width: 6),
+          const Text(
+            'LOCAL_ENCRYPTION_ACTIVE // 100% COMPLIANT',
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.white10,
+              letterSpacing: 1,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 4),
           Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.7),
-              fontWeight: FontWeight.w500,
+            'ANTIGRAVITY REBOOT SYSTEM v2.1',
+            style: TextStyle(
+              fontSize: 8,
+              color: Colors.white.withValues(alpha: 0.05),
+              fontFamily: 'monospace',
             ),
           ),
         ],

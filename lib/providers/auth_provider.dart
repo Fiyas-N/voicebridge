@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../data/models/user_profile.dart';
+import '../data/local/database_helper.dart';
 import '../services/firebase_service.dart';
+import '../services/sync_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService();
@@ -21,13 +23,11 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _init() async {
-    // Single source of truth: Firebase auth state stream.
-    // This fires once on startup (with current user or null) and again
-    // whenever the user signs in or out.
     _firebaseService.authStateChanges.listen(
       (User? user) async {
         if (user != null) {
           await _loadUserProfile(firebaseUser: user);
+          SyncService().processPendingUploads();
         } else {
           _currentUser = null;
           _isAuthenticated = false;
@@ -44,58 +44,72 @@ class AuthProvider with ChangeNotifier {
     );
   }
 
-  /// Loads the user profile from Firebase DB.
-  /// If the DB read fails or returns null, we still mark the user as
-  /// authenticated (Firebase Auth succeeded) and build a minimal profile
-  /// from the FirebaseAuth user object so the app can function.
+  /// Strategically resolves user identity. prioritizes High-Speed LOCAL SQLite cache
+  /// for zero-latency UI rendering, while silently synchronizing with Cloud Firestore.
   Future<void> _loadUserProfile({User? firebaseUser}) async {
     _isLoading = true;
     notifyListeners();
-    try {
-      UserProfile? profile = await _firebaseService.getUserProfile();
 
-      if (profile == null) {
-        // Profile missing from DB — create a minimal one from FirebaseAuth data
+    try {
+      final userIdent = firebaseUser ?? _firebaseService.currentFirebaseUser;
+      if (userIdent == null) {
+        _isAuthenticated = false;
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // ── PHASE 1: IMMEDIATE LOCAL LOOKUP ─────────────────────────────────
+      final localMap = await DatabaseHelper.instance.getUserProfile(userIdent.uid);
+      if (localMap != null) {
+        debugPrint('AuthProvider: Local Profile Load Stabilized.');
+        _currentUser = UserProfile.fromDbMap(localMap);
+        _isAuthenticated = true;
+        _isLoading = false;
+        notifyListeners(); // Instant update for UI Screens (Progress, Home)!
+      }
+
+      // ── PHASE 2: SILENT CLOUD SYNC & RECONCILIATION ─────────────────────
+      UserProfile? cloudProfile = await _firebaseService.getUserProfile();
+
+      if (cloudProfile == null) {
+        // Fallback to basic builder
+        cloudProfile = UserProfile(
+          userId: userIdent.uid,
+          email: userIdent.email ?? '',
+          displayName: userIdent.displayName ?? '',
+          createdAt: userIdent.metadata.creationTime ?? DateTime.now(),
+          lastActiveAt: DateTime.now(),
+        );
+        await _firebaseService.ensureUserProfile(cloudProfile);
+      }
+
+      // If local cache was outdated or missing, merge from cloud and update local
+      if (_currentUser == null || cloudProfile.xp > _currentUser!.xp) {
+        debugPrint('AuthProvider: Merging escalated Cloud Profile metrics.');
+        _currentUser = cloudProfile;
+        // Secure the latest metadata in local SQL
+        await DatabaseHelper.instance.insertUserProfile(cloudProfile.toDbMap());
+      }
+
+      _isAuthenticated = true;
+      _errorMessage = null;
+    } catch (e) {
+      debugPrint('Auth Flow Error: $e');
+      // Fallback fallback logic
+      if (_currentUser == null) {
         final fbUser = firebaseUser ?? _firebaseService.currentFirebaseUser;
         if (fbUser != null) {
-          profile = UserProfile(
+          _currentUser = UserProfile(
             userId: fbUser.uid,
             email: fbUser.email ?? '',
             displayName: fbUser.displayName ?? '',
-            createdAt: fbUser.metadata.creationTime ?? DateTime.now(),
+            createdAt: DateTime.now(),
             lastActiveAt: DateTime.now(),
           );
-          // Try to write the missing profile back to Firebase (best-effort)
-          try {
-            await _firebaseService.ensureUserProfile(profile);
-          } catch (e) {
-            debugPrint('Could not write missing profile to Firebase: $e');
-          }
+          _isAuthenticated = true;
         }
       }
-
-      _currentUser = profile;
-      _isAuthenticated = true;
-      _errorMessage = null;
-      debugPrint('Auth ready — user: ${_currentUser?.email}');
-    } catch (e) {
-      debugPrint('_loadUserProfile error: $e');
-      // Even if the DB read fails, the user IS authenticated via Firebase Auth.
-      // Build a minimal profile so they can use the app.
-      final fbUser = firebaseUser ?? _firebaseService.currentFirebaseUser;
-      if (fbUser != null) {
-        _currentUser = UserProfile(
-          userId: fbUser.uid,
-          email: fbUser.email ?? '',
-          displayName: fbUser.displayName ?? '',
-          createdAt: DateTime.now(),
-          lastActiveAt: DateTime.now(),
-        );
-        _isAuthenticated = true;
-      } else {
-        _isAuthenticated = false;
-      }
-      _errorMessage = null;
     } finally {
       _isLoading = false;
       notifyListeners();

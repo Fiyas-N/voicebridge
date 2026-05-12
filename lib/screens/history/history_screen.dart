@@ -4,13 +4,10 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/local/database_helper.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/animated_button.dart';
 import 'session_detail_screen.dart';
 
-// ─── Filter / Sort options ─────────────────────────────────────────────────
 enum _SortOption { newest, oldest, highestScore, lowestScore }
-
 enum _FilterOption { all, baseline, practice }
 
 class HistoryScreen extends StatefulWidget {
@@ -43,10 +40,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userId = authProvider.currentUser?.userId;
-
       if (userId == null) throw Exception('User not logged in');
 
-      // Load from local SQLite — has full data (transcript, feedback, scores)
       final sessions = await DatabaseHelper.instance.getUserSessions(userId, limit: 100);
 
       setState(() {
@@ -55,128 +50,88 @@ class _HistoryScreenState extends State<HistoryScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to load sessions: $e';
+        _errorMessage = 'Error: $e';
         _isLoading = false;
       });
     }
   }
 
-  // ─── Derived list after filter + sort ──────────────────────────────────────
   List<Map<String, dynamic>> get _displayedSessions {
     var list = List<Map<String, dynamic>>.from(_sessions);
 
-    // Filter — SQLite uses snake_case 'type' field (same name)
     if (_filterOption == _FilterOption.baseline) {
       list = list.where((s) => s['type'] == 'baseline').toList();
     } else if (_filterOption == _FilterOption.practice) {
       list = list.where((s) => s['type'] != 'baseline').toList();
     }
 
-    // Sort — SQLite uses snake_case: created_at, composite_score
     switch (_sortOption) {
       case _SortOption.newest:
-        list.sort((a, b) =>
-            (b['created_at'] as int? ?? 0).compareTo(a['created_at'] as int? ?? 0));
+        list.sort((a, b) => (b['created_at'] as int? ?? 0).compareTo(a['created_at'] as int? ?? 0));
         break;
       case _SortOption.oldest:
-        list.sort((a, b) =>
-            (a['created_at'] as int? ?? 0).compareTo(b['created_at'] as int? ?? 0));
+        list.sort((a, b) => (a['created_at'] as int? ?? 0).compareTo(b['created_at'] as int? ?? 0));
         break;
       case _SortOption.highestScore:
-        list.sort((a, b) {
-          final sa = (a['composite_score'] as num? ?? 0);
-          final sb = (b['composite_score'] as num? ?? 0);
-          return sb.compareTo(sa);
-        });
+        list.sort((a, b) => (b['composite_score'] as num? ?? 0).compareTo(a['composite_score'] as num? ?? 0));
         break;
       case _SortOption.lowestScore:
-        list.sort((a, b) {
-          final sa = (a['composite_score'] as num? ?? 0);
-          final sb = (b['composite_score'] as num? ?? 0);
-          return sa.compareTo(sb);
-        });
+        list.sort((a, b) => (a['composite_score'] as num? ?? 0).compareTo(b['composite_score'] as num? ?? 0));
         break;
     }
 
     return list;
   }
 
-  // ─── Filter / Sort bottom sheet ───────────────────────────────────────────
   void _showFilterSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => Container(
         decoration: BoxDecoration(
-          color: AppColors.backgroundOffWhite,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppColors.borderLight, width: 2),
+          color: const Color(0xFF0A0A0A),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          border: const Border(top: BorderSide(color: AppColors.borderLight, width: 1)),
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
         child: StatefulBuilder(
           builder: (ctx, setSheet) {
             return Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Filter & Sort',
-                    style: TextStyle(
-                        color: AppColors.textDark,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold)),
+                const Text('CONFIGURATION',
+                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, fontSize: 12, color: Colors.white)),
                 const SizedBox(height: 24),
-                const Text('FILTER BY',
-                    style: TextStyle(
-                        color: AppColors.textMedium,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2)),
+                const Text('FILTERING', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _chip('All', _filterOption == _FilterOption.all,
-                        () => setSheet(() => _filterOption = _FilterOption.all)),
-                    _chip('Practice', _filterOption == _FilterOption.practice,
-                        () => setSheet(() => _filterOption = _FilterOption.practice)),
-                    _chip('Baseline', _filterOption == _FilterOption.baseline,
-                        () => setSheet(() => _filterOption = _FilterOption.baseline)),
+                    _chip('ALL', _filterOption == _FilterOption.all, () => setSheet(() => _filterOption = _FilterOption.all)),
+                    _chip('PRACTICE', _filterOption == _FilterOption.practice, () => setSheet(() => _filterOption = _FilterOption.practice)),
+                    _chip('BASELINE', _filterOption == _FilterOption.baseline, () => setSheet(() => _filterOption = _FilterOption.baseline)),
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Text('SORT BY',
-                    style: TextStyle(
-                        color: AppColors.textMedium,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2)),
+                const Text('ORDERING', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _chip('Newest', _sortOption == _SortOption.newest,
-                        () => setSheet(() => _sortOption = _SortOption.newest)),
-                    _chip('Oldest', _sortOption == _SortOption.oldest,
-                        () => setSheet(() => _sortOption = _SortOption.oldest)),
-                    _chip('Highest Score',
-                        _sortOption == _SortOption.highestScore,
-                        () => setSheet(
-                            () => _sortOption = _SortOption.highestScore)),
-                    _chip('Lowest Score',
-                        _sortOption == _SortOption.lowestScore,
-                        () => setSheet(
-                            () => _sortOption = _SortOption.lowestScore)),
+                    _chip('NEWEST', _sortOption == _SortOption.newest, () => setSheet(() => _sortOption = _SortOption.newest)),
+                    _chip('OLDEST', _sortOption == _SortOption.oldest, () => setSheet(() => _sortOption = _SortOption.oldest)),
+                    _chip('MAX SCORE', _sortOption == _SortOption.highestScore, () => setSheet(() => _sortOption = _SortOption.highestScore)),
+                    _chip('MIN SCORE', _sortOption == _SortOption.lowestScore, () => setSheet(() => _sortOption = _SortOption.lowestScore)),
                   ],
                 ),
                 const SizedBox(height: 32),
                 AnimatedButton(
-                  text: 'Apply',
-                  icon: Icons.check,
-                  width: double.infinity,
+                  text: 'CONFIRM',
                   onPressed: () {
-                    setState(() {}); // Apply to main screen
+                    setState(() {}); 
                     Navigator.pop(ctx);
                   },
                 ),
@@ -194,207 +149,68 @@ class _HistoryScreenState extends State<HistoryScreen> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.surface,
+          color: selected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-              color: selected ? AppColors.primary : AppColors.borderLight, width: 2),
+          border: Border.all(color: selected ? Colors.white : AppColors.borderLight),
         ),
-        child: Text(label,
-            style: TextStyle(
-                color: selected ? AppColors.primary : AppColors.textMedium,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w600)),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : AppColors.textSecondary,
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            letterSpacing: 0.5,
+          ),
+        ),
       ),
     );
   }
 
-  // ─── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // App Bar
-            SliverAppBar(
-              expandedHeight: 120,
-              floating: false,
-              pinned: true,
-              backgroundColor: AppColors.surface,
-              elevation: 0,
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(1.0),
-                child: Container(
-                  color: AppColors.borderLight,
-                  height: 1.0,
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.tune, color: AppColors.textDark),
-                  tooltip: 'Filter & Sort',
-                  onPressed: _showFilterSheet,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: AppColors.textDark),
-                  tooltip: 'Refresh',
-                  onPressed: _loadSessions,
-                ),
-              ],
-              flexibleSpace: FlexibleSpaceBar(
-                background: Container(
-                  color: AppColors.surface,
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            'History',
-                            style: Theme.of(context)
-                                .textTheme
-                                .displayMedium
-                                ?.copyWith(
-                                    color: AppColors.textDark,
-                                    fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_displayedSessions.length} of ${_sessions.length} sessions',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                    color: AppColors.textMedium,
-                                    fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Active filter chips summary bar
-            if (!_isLoading && _sessions.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.filter_list,
-                          color: AppColors.primary, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        _filterLabel(),
-                        style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14),
-                      ),
-                      const SizedBox(width: 24),
-                      const Icon(Icons.sort,
-                          color: AppColors.secondary, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        _sortLabel(),
-                        style: const TextStyle(
-                            color: AppColors.secondary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // List
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: _buildContent(),
-              ),
-            ),
-          ],
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        title: Text(
+          'SESSION ARCHIVE'.toUpperCase(),
+          style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune, color: Colors.white, size: 20),
+            onPressed: _showFilterSheet,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+            onPressed: _loadSessions,
+          ),
+        ],
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : _buildContent(),
     );
   }
 
-  String _filterLabel() {
-    switch (_filterOption) {
-      case _FilterOption.all:
-        return 'All sessions';
-      case _FilterOption.baseline:
-        return 'Baseline only';
-      case _FilterOption.practice:
-        return 'Practice only';
-    }
-  }
-
-  String _sortLabel() {
-    switch (_sortOption) {
-      case _SortOption.newest:
-        return 'Newest first';
-      case _SortOption.oldest:
-        return 'Oldest first';
-      case _SortOption.highestScore:
-        return 'Highest score';
-      case _SortOption.lowestScore:
-        return 'Lowest score';
-    }
-  }
-
   Widget _buildContent() {
-    if (_isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48.0),
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-          ),
-        ),
-      );
-    }
-
     if (_errorMessage != null) {
-      return GlassCard(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            const Icon(Icons.error_outline,
-                size: 64, color: AppColors.error),
-            const SizedBox(height: 20),
-            Text(
-              'Error Loading Sessions',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(_errorMessage!,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: AppColors.textMedium),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 24),
-            AnimatedButton(
-              text: 'Retry',
-              icon: Icons.refresh,
-              onPressed: _loadSessions,
-            ),
-          ],
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.warning_amber_rounded, size: 48, color: AppColors.accentRed),
+              const SizedBox(height: 16),
+              Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 24),
+              AnimatedButton(text: 'RETRY', onPressed: _loadSessions, width: 120),
+            ],
+          ),
         ),
       );
     }
@@ -402,129 +218,121 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final displayed = _displayedSessions;
 
     if (displayed.isEmpty) {
-      return GlassCard(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            const Icon(Icons.history, size: 64, color: AppColors.textLight),
-            const SizedBox(height: 20),
-            Text(
-              _sessions.isEmpty ? 'No Sessions Yet' : 'No Matches',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _sessions.isEmpty
-                  ? 'Start practicing to see your session history!'
-                  : 'Try changing the filter options.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.textMedium),
-              textAlign: TextAlign.center,
-            ),
-          ],
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.storage_outlined, size: 64, color: Colors.white.withValues(alpha: 0.1)),
+              const SizedBox(height: 24),
+              const Text(
+                'ARCHIVE EMPTY',
+                style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: displayed
-          .map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: _buildSessionCard(s),
-              ))
-          .toList(),
+    return ListView.builder(
+      padding: const EdgeInsets.all(24),
+      physics: const BouncingScrollPhysics(),
+      itemCount: displayed.length,
+      itemBuilder: (ctx, i) => _buildSessionCard(displayed[i]),
     );
   }
 
   Widget _buildSessionCard(Map<String, dynamic> session) {
-    final createdAt = DateTime.fromMillisecondsSinceEpoch(
-      session['created_at'] as int? ?? 0,
-    );
+    final createdAt = DateTime.fromMillisecondsSinceEpoch(session['created_at'] as int? ?? 0);
     final overallScore = (session['composite_score'] as num? ?? 0);
     final dateStr  = _formatDate(createdAt);
     final timeAgo  = _formatTimeAgo(createdAt);
+    final bool isBaseline = session['type'] == 'baseline';
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SessionDetailScreen(session: session),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SessionDetailScreen(session: session)),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppColors.borderLight),
           ),
-        );
-      },
-      child: GlassCard(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('${overallScore.toInt()}',
-                      style: const TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900)),
-                  Text(session['cefr_level'] as String? ?? 'A1',
-                      style: const TextStyle(
-                          color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(dateStr,
-                      style: const TextStyle(
-                          color: AppColors.textDark,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
-                  Text(timeAgo,
-                      style: const TextStyle(
-                          color: AppColors.textMedium, fontSize: 13, fontWeight: FontWeight.w600)),
-                  if (session['type'] == 'baseline') ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text('BASELINE',
-                          style: TextStyle(
-                              color: AppColors.secondary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900)),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.borderLight),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${overallScore.toInt()}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+                    ),
+                    Text(
+                      session['cefr_level'] as String? ?? 'A1',
+                      style: const TextStyle(fontSize: 9, color: AppColors.textTertiary, fontWeight: FontWeight.bold),
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textLight, size: 20),
-          ],
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          dateStr.toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5),
+                        ),
+                        if (isBaseline) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentRed.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'CORE',
+                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.accentRed, letterSpacing: 0.5),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      timeAgo.toUpperCase(),
+                      style: const TextStyle(color: AppColors.textTertiary, fontSize: 11, fontFamily: 'monospace'),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textTertiary, size: 20),
+            ],
+          ),
         ),
       ),
     );
   }
-
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -540,15 +348,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _formatTimeAgo(DateTime date) {
     final now = DateTime.now();
     final d = now.difference(date);
-
-    if (d.inMinutes < 1) return 'Just now';
-    if (d.inMinutes < 60) return '${d.inMinutes} min ago';
-    if (d.inHours < 24) {
-      return '${d.inHours} hour${d.inHours > 1 ? 's' : ''} ago';
-    }
-    if (d.inDays < 7) {
-      return '${d.inDays} day${d.inDays > 1 ? 's' : ''} ago';
-    }
+    if (d.inMinutes < 1) return 'Now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    if (d.inDays < 7) return '${d.inDays}d ago';
     return DateFormat('MMM d').format(date);
   }
 }

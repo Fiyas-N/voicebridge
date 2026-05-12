@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'local_llm_service.dart';
+import 'grammar_service.dart';
+import 'cloud_llm_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FeedbackService {
   final LocalLlmService _localLlm = LocalLlmService();
+  final CloudLlmService _cloudLlm = CloudLlmService();
 
   /// Build the raw prompt string for Gemma.
   /// Called by session_provider when using streaming mode.
@@ -10,31 +14,54 @@ class FeedbackService {
     required double fluencyScore,
     required double grammarScore,
     required double pronunciationScore,
-    required List<String> grammarErrors,
+    required List<GrammarError> grammarErrors,
+    List<String> mispronounced = const [],
     String? correctedSentence,
   }) {
-    return '''You are an encouraging English coach.
-Provide 1 sentence of encouragement and 3 short actionable improvement tips.
+    final errorLines = grammarErrors.isNotEmpty
+        ? grammarErrors
+            .map((e) => '  • "${e.original}" → "${e.correction}": ${e.explanation}')
+            .join('\n')
+        : '  None detected';
 
-Performance:
-- Fluency: ${fluencyScore.toStringAsFixed(1)}
-- Grammar: ${grammarScore.toStringAsFixed(1)}
-- Pronunciation: ${pronunciationScore.toStringAsFixed(1)}
-- Error types: ${grammarErrors.isNotEmpty ? grammarErrors.join(", ") : "None"}
-${correctedSentence != null && correctedSentence.isNotEmpty ? "- Corrected: $correctedSentence" : ""}
+    final pronLines = mispronounced.isNotEmpty
+        ? mispronounced.map((w) => '  • $w').join('\n')
+        : '  None detected';
 
-Rules:
-- Max 100 words.
-- Be warm and specific.
+    return '''You are a patient, professional English Tutor conducting a private lesson.
+Provide an encouraging assessment and clear, educational corrections.
+
+Performance Analysis:
+- Fluency (Pacing/Smoothness): ${fluencyScore.toStringAsFixed(1)}%
+- Grammar & Structure: ${grammarScore.toStringAsFixed(1)}%
+- Word Pronunciation: ${pronunciationScore.toStringAsFixed(1)}%
+
+---
+GRAMMAR CORRECTIONS:
+$errorLines
+
+---
+PRONUNCIATION DRILL:
+$pronLines
+
+---
+${correctedSentence != null && correctedSentence.isNotEmpty ? "THE IDEAL SENTENCE STRUCTURE IS: \"$correctedSentence\"" : ""}
+
+INSTRUCTIONS AS TUTOR:
+1. Address the student warmly.
+2. For EVERY word in the PRONUNCIATION DRILL list, show them HOW to say it phonetically using simple English sounds in quotes (Example: "Make" -> "MEIK", "Thought" -> "THAWT"). 
+3. Give 1 specific grammar tip based on the corrections above.
+4. Keep language easy to understand. Max 150 words.
 ''';
   }
 
-  /// Generate personalized coaching feedback using the on-device Gemma 3 1B model.
+  /// Generate personalized coaching feedback using hybrid routing.
   Future<String> generateFeedback({
     required double fluencyScore,
     required double grammarScore,
     required double pronunciationScore,
-    required List<String> grammarErrors,
+    required List<GrammarError> grammarErrors,
+    List<String> mispronounced = const [],
     String? correctedSentence,
   }) async {
     final prompt = buildPrompt(
@@ -42,16 +69,34 @@ Rules:
       grammarScore: grammarScore,
       pronunciationScore: pronunciationScore,
       grammarErrors: grammarErrors,
+      mispronounced: mispronounced,
       correctedSentence: correctedSentence,
     );
+
     try {
-      final response = await _localLlm.generateResponse(prompt);
-      if (response.isNotEmpty && response.length > 20) {
-        debugPrint('Feedback: local generation complete');
-        return response.trim();
+      final prefs = await SharedPreferences.getInstance();
+      final useOfflineOnly = prefs.getBool('use_offline_only') ?? false;
+
+      // ── 1. Try Cloud LLM first (faster, better reasoning) if allowed and online
+      if (!useOfflineOnly && await _cloudLlm.isOnline()) {
+        debugPrint('Feedback: Routing to Gemini Flash (online)');
+        final response = await _cloudLlm.generateText(prompt);
+        if (response.length > 20) return response;
+      }
+
+      // ── 2. Fallback to On-Device LLM
+      debugPrint('Feedback: Routing to Local Qwen/Gemma (offline)');
+      try {
+        await _localLlm.loadModel(); // Prime memory
+        final response = await _localLlm.smartGenerate(prompt);
+        if (response.isNotEmpty && response.length > 20) {
+          return response.trim();
+        }
+      } finally {
+        await _localLlm.unloadModel(); // Reclaim system RAM
       }
     } catch (e) {
-      debugPrint('Feedback: local generation error — $e');
+      debugPrint('Feedback: Model generation error — $e');
     }
     return _generateTemplateFeedback(fluencyScore, grammarScore, pronunciationScore);
   }

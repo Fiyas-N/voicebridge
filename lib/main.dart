@@ -13,6 +13,7 @@ import 'services/local_stt_service.dart';
 import 'services/local_llm_service.dart';
 import 'services/firebase_service.dart';
 import 'services/language_detection_service.dart';
+import 'services/sync_service.dart';
 import 'screens/onboarding/welcome_screen.dart';
 import 'screens/setup/model_setup_screen.dart';
 import 'widgets/common/main_navigation.dart';
@@ -97,6 +98,9 @@ class _VoiceBridgeAppState extends State<VoiceBridgeApp> {
   }
 
   void _safeInitAi() {
+    // Start Background Network Sync for offline sessions
+    SyncService().initialize();
+    
     // Fire and forget, but with individual catch blocks
     TtsService().init().catchError((e) => debugPrint('Non-fatal: TTS Init Fail: $e'));
     LocalSttService().init().catchError((e) => debugPrint('Non-fatal: STT Init Fail: $e'));

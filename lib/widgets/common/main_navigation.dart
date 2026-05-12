@@ -27,62 +27,61 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          border: Border(
+            top: BorderSide(color: AppColors.borderLight, width: 1),
           ),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.textMedium,
-            selectedFontSize: 12,
-            unselectedFontSize: 12,
-            elevation: 0,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.menu_book_outlined),
-                activeIcon: Icon(Icons.menu_book),
-                label: 'Lessons',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.trending_up_outlined),
-                activeIcon: Icon(Icons.trending_up),
-                label: 'Progress',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.history_outlined),
-                activeIcon: Icon(Icons.history),
-                label: 'History',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                activeIcon: Icon(Icons.person),
-                label: 'Profile',
-              ),
-            ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.textSecondary,
+              selectedFontSize: 11,
+              unselectedFontSize: 11,
+              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, letterSpacing: 0.5),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined, size: 22),
+                  activeIcon: Icon(Icons.home_filled, size: 22),
+                  label: 'HOME',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.grid_view_outlined, size: 22),
+                  activeIcon: Icon(Icons.grid_view_rounded, size: 22),
+                  label: 'LESSONS',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.analytics_outlined, size: 22),
+                  activeIcon: Icon(Icons.analytics_rounded, size: 22),
+                  label: 'DATA',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.history_toggle_off, size: 22),
+                  activeIcon: Icon(Icons.history_rounded, size: 22),
+                  label: 'LOGS',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline, size: 22),
+                  activeIcon: Icon(Icons.person, size: 22),
+                  label: 'ME',
+                ),
+              ],
+            ),
           ),
         ),
       ),

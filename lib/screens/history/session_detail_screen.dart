@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../../core/theme/app_theme.dart';
 import '../../services/local_stt_service.dart';
-import '../../widgets/common/glass_card.dart';
 import '../../widgets/common/word_highlight_widget.dart';
 
 class SessionDetailScreen extends StatelessWidget {
@@ -16,21 +15,17 @@ class SessionDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // SQLite uses snake_case column names
-    final createdAt = DateTime.fromMillisecondsSinceEpoch(
-      session['created_at'] as int? ?? 0,
-    );
-    final fluency      = (session['fluency_score']      as num? ?? 0).toDouble();
-    final grammar      = (session['grammar_score']      as num? ?? 0).toDouble();
-    final pronunciation= (session['pronunciation_score'] as num? ?? 0).toDouble();
-    final overall      = (session['composite_score']    as num? ?? 0).toDouble();
-    final band         = (session['estimated_band']     as num? ?? 0).toDouble();
-    final transcript   = session['transcript']  as String? ?? '';
-    final feedback     = session['feedback']    as String? ?? '';
-    final promptText   = session['prompt_text'] as String? ?? '';
-    final type         = session['type']        as String? ?? 'practice';
+    final createdAt = DateTime.fromMillisecondsSinceEpoch(session['created_at'] as int? ?? 0);
+    final fluency = (session['fluency_score'] as num? ?? 0).toDouble();
+    final grammar = (session['grammar_score'] as num? ?? 0).toDouble();
+    final pronunciation = (session['pronunciation_score'] as num? ?? 0).toDouble();
+    final overall = (session['composite_score'] as num? ?? 0).toDouble();
+    final band = (session['estimated_band'] as num? ?? 0).toDouble();
+    final transcript = session['transcript'] as String? ?? '';
+    final feedback = session['feedback'] as String? ?? '';
+    final promptText = session['prompt_text'] as String? ?? '';
+    final type = session['type'] as String? ?? 'practice';
 
-    // Parse granular feedback
     List<String> grammarCorrections = [];
     List<String> improvementTips = [];
     List<String> advancedVocabulary = [];
@@ -52,303 +47,183 @@ class SessionDetailScreen extends StatelessWidget {
             .toList();
       }
     } catch (e) {
-      debugPrint('Error parsing granular feedback: $e');
+      debugPrint('Error: $e');
     }
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
-      body: SafeArea(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                // App Bar
-                SliverAppBar(
-                  expandedHeight: 120,
-                  floating: false,
-                  pinned: true,
-                  backgroundColor: AppColors.surface,
-                  elevation: 0,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppColors.textDark),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Container(
-                      color: AppColors.surface,
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                type == 'baseline'
-                                    ? 'Baseline Session'
-                                    : 'Practice Session',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .displaySmall
-                                    ?.copyWith(
-                                      color: AppColors.textDark,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 24,
-                                    ),
-                              ),
-                              Text(
-                                DateFormat('MMMM d, yyyy · h:mm a')
-                                    .format(createdAt),
-                                style: const TextStyle(
-                                    color: AppColors.textMedium,
-                                    fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        title: Text(
+          'ANALYSIS RECORD'.toUpperCase(),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: Center(
+              child: Text(
+                DateFormat('MMM dd, HH:mm').format(createdAt).toUpperCase(),
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 10, color: AppColors.textTertiary),
+              ),
+            ),
+          )
+        ],
+      ),
+      body: ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: AppColors.borderLight),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _bigScore('OVERALL', overall.toInt().toString()),
+                    _bigScore('BAND', band.toStringAsFixed(1)),
+                    _bigScore('CEFR', session['cefr_level'] as String? ?? 'A1'),
+                  ],
                 ),
-
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // ── Score Summary ──────────────────────────────────
-                        GlassCard(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              // Overall + Band
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  _bigScore(context, overall.toInt().toString(),
-                                      'Overall', AppColors.primary),
-                                  const SizedBox(width: 32),
-                                  _bigScore(context, band.toStringAsFixed(1),
-                                      'Band', AppColors.secondary),
-                                  const SizedBox(width: 32),
-                                  _bigScore(context,
-                                    session['cefr_level'] as String? ?? 'A1',
-                                    'CEFR', AppColors.accentPurple),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              // Category bars
-                              _scorebar(context, 'Fluency', fluency, AppColors.primary),
-                              const SizedBox(height: 12),
-                              _scorebar(context, 'Grammar', grammar, AppColors.secondary),
-                              const SizedBox(height: 12),
-                              _scorebar(context, 'Pronunciation', pronunciation, const Color(0xFFFF9600)),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // ── Prompt ─────────────────────────────────────────
-                        if (promptText.isNotEmpty) ...[
-                          _sectionCard(
-                            context,
-                            icon: Icons.chat_bubble_outline,
-                            title: 'Prompt',
-                            body: promptText,
-                            iconColor: AppColors.secondary,
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // ── Transcript ────────────────────────────────────
-                        if (transcript.isNotEmpty) ...[
-                          _sectionCard(
-                            context,
-                            icon: Icons.text_snippet_outlined,
-                            title: 'Your Transcription',
-                            bodyWidget: wordResults.isNotEmpty
-                                ? Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      WordHighlightWidget(words: wordResults),
-                                      const SizedBox(height: 12),
-                                      const WordHighlightLegend(),
-                                    ],
-                                  )
-                                : Text(transcript,
-                                    style: const TextStyle(
-                                        color: AppColors.textMedium,
-                                        fontSize: 14,
-                                        height: 1.6)),
-                            iconColor: AppColors.primary,
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // ── Feedback ───────────────────────────────────────
-                        if (feedback.isNotEmpty) ...[
-                          _sectionCard(
-                            context,
-                            icon: Icons.lightbulb_outline,
-                            title: 'AI Insights',
-                            body: feedback,
-                            iconColor: const Color(0xFFFF9600),
-                          ),
-                        ],
-
-                        // ── Grammar Fixes ──────────────────────────────────
-                        if (grammarCorrections.isNotEmpty) ...[
-                          _sectionCard(
-                            context,
-                            icon: Icons.spellcheck_rounded,
-                            title: 'Grammar Corrections',
-                            bodyWidget: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: grammarCorrections.map((e) => _listItem(e)).toList(),
-                            ),
-                            iconColor: AppColors.secondary,
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // ── Native Tips ────────────────────────────────────
-                        if (improvementTips.isNotEmpty) ...[
-                          _sectionCard(
-                            context,
-                            icon: Icons.auto_awesome_rounded,
-                            title: 'Native-Level Tips',
-                            bodyWidget: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: improvementTips.map((e) => _listItem(e)).toList(),
-                            ),
-                            iconColor: const Color(0xFF6bcb77),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                        // ── Advanced Vocabulary ─────────────────────────────
-                        if (advancedVocabulary.isNotEmpty) ...[
-                          _sectionCard(
-                            context,
-                            icon: Icons.style_rounded,
-                            title: 'Power Vocabulary',
-                            bodyWidget: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: advancedVocabulary.map((e) => _listItem(e)).toList(),
-                            ),
-                            iconColor: AppColors.accentPurple,
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 32),
+                _scoreLine('FLUENCY', fluency),
+                const SizedBox(height: 16),
+                _scoreLine('GRAMMAR', grammar),
+                const SizedBox(height: 16),
+                _scoreLine('PHONETICS', pronunciation),
               ],
             ),
           ),
+          const SizedBox(height: 20),
+          if (promptText.isNotEmpty)
+            _dataCard('CONTEXT', Icons.short_text, Text(promptText, style: const TextStyle(color: Colors.white, height: 1.4))),
+          if (transcript.isNotEmpty)
+            _dataCard(
+              'OUTPUT LOG',
+              Icons.description_outlined,
+              wordResults.isNotEmpty
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        WordHighlightWidget(words: wordResults),
+                        const SizedBox(height: 16),
+                        const WordHighlightLegend(),
+                      ],
+                    )
+                  : Text(transcript, style: const TextStyle(color: Colors.white, height: 1.4)),
+            ),
+          if (feedback.isNotEmpty) _dataCard('AI OBSERVATION', Icons.insights_rounded, Text(feedback, style: const TextStyle(color: AppColors.textSecondary, height: 1.5, fontSize: 13))),
+          if (grammarCorrections.isNotEmpty)
+            _dataCard(
+              'REFACTOR LOG',
+              Icons.edit_note_rounded,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: grammarCorrections.map((e) => _listEntry(e)).toList(),
+              ),
+            ),
+          if (improvementTips.isNotEmpty)
+            _dataCard(
+              'OPTIMIZATIONS',
+              Icons.bolt_rounded,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: improvementTips.map((e) => _listEntry(e)).toList(),
+              ),
+            ),
+          if (advancedVocabulary.isNotEmpty)
+            _dataCard(
+              'LEXICAL HINTS',
+              Icons.menu_book_rounded,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: advancedVocabulary.map((e) => _listEntry(e)).toList(),
+              ),
+            ),
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 
-  Widget _bigScore(BuildContext context, String value, String label, Color color) {
+  Widget _bigScore(String label, String val) {
     return Column(
       children: [
-        Text(value,
-            style: TextStyle(
-                color: color,
-                fontSize: 32,
-                fontWeight: FontWeight.bold)),
-        Text(label,
-            style: const TextStyle(
-                color: AppColors.textMedium, fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(fontSize: 9, color: AppColors.textTertiary, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        const SizedBox(height: 6),
+        Text(val, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
       ],
     );
   }
 
-  Widget _scorebar(BuildContext context, String label, double score, Color color) {
-    final pct = (score / 100).clamp(0.0, 1.0);
+  Widget _scoreLine(String lbl, double val) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label,
-                style: const TextStyle(
-                    color: AppColors.textDark,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600)),
-            Text('${score.toInt()}',
-                style: TextStyle(
-                    color: color,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold)),
+            Text(lbl, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textTertiary)),
+            Text('${val.toInt()}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(2),
           child: LinearProgressIndicator(
-            value: pct,
-            minHeight: 8,
-            backgroundColor: AppColors.borderLight,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
+            value: (val / 100).clamp(0.0, 1.0),
+            minHeight: 4,
+            backgroundColor: Colors.white.withValues(alpha: 0.05),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
           ),
         ),
       ],
     );
   }
 
-  Widget _sectionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    String? body,
-    Widget? bodyWidget,
-    required Color iconColor,
-  }) {
-    return GlassCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: iconColor, size: 20),
-              const SizedBox(width: 10),
-              Text(title,
-                  style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          bodyWidget ?? Text(body!,
-              style: const TextStyle(
-                  color: AppColors.textMedium,
-                  fontSize: 14,
-                  height: 1.6)),
-        ],
+  Widget _dataCard(String title, IconData icon, Widget child) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppColors.borderLight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 14, color: AppColors.textTertiary),
+                const SizedBox(width: 8),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: AppColors.textTertiary, fontSize: 10)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
       ),
     );
   }
 
-  Widget _listItem(String text) {
+  Widget _listEntry(String txt) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(color: AppColors.textMedium, fontSize: 16)),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                  color: AppColors.textMedium, fontSize: 13, height: 1.4),
-            ),
-          ),
+          const Text('» ', style: TextStyle(color: AppColors.textTertiary, fontWeight: FontWeight.bold)),
+          Expanded(child: Text(txt, style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary))),
         ],
       ),
     );

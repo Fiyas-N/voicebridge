@@ -184,6 +184,7 @@ class SessionProvider with ChangeNotifier {
       final pronunciationFuture = aiPipeline.pronunciationService.assessPronunciation(
         audioPath: _currentSession!.audioLocalPath!,
         referenceText: _currentSession!.promptText ?? '',
+        audioDurationSeconds: _currentSession!.audioDuration ?? 0.0,
       );
       final grammar = await grammarFuture;
       final pronunciation = await pronunciationFuture;
@@ -204,12 +205,18 @@ class SessionProvider with ChangeNotifier {
       debugPrint('Provider: Loading Gemma for streamed feedback…');
       await llm.loadModel();
 
-      final errorTypes = grammar.errors.map((e) => e.type).toSet().toList();
+      final mispronounced = transcription.words
+          .where((w) => w.confidence < 0.65 && w.word.length > 2)
+          .map((w) => w.word)
+          .toSet()
+          .toList();
+
       final feedbackPrompt = aiPipeline.feedbackService.buildPrompt(
         fluencyScore: pronunciation.fluencyScore,
         grammarScore: grammar.score,
         pronunciationScore: pronunciation.overallScore,
-        grammarErrors: errorTypes,
+        grammarErrors: grammar.errors.toList(),
+        mispronounced: mispronounced,
         correctedSentence: grammar.correctedText,
       );
 
@@ -368,6 +375,7 @@ class SessionProvider with ChangeNotifier {
     List<String> grammarCorrections = const [],
     List<String> improvementTips = const [],
     List<String> advancedVocabulary = const [],
+    List<String> pronunciationTips = const [],
     List<WordInfo> wordResults = const [],
   }) async {
     final sessionId = const Uuid().v4();
@@ -396,6 +404,7 @@ class SessionProvider with ChangeNotifier {
       grammarCorrections: grammarCorrections,
       improvementTips: improvementTips,
       advancedVocabulary: advancedVocabulary,
+      pronunciationTips: pronunciationTips,
       wordResults: wordResults,
       synced: false,
     );

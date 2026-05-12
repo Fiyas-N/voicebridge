@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../widgets/common/glass_card.dart';
 import 'signup_screen.dart';
 import 'login_screen.dart';
 
@@ -29,7 +28,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     _iconAnimations = _iconControllers
         .map((controller) => CurvedAnimation(
               parent: controller,
-              curve: Curves.elasticOut,
+              curve: Curves.easeOutBack,
             ))
         .toList();
 
@@ -55,24 +54,30 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
+      backgroundColor: AppColors.background,
       body: SafeArea(
             child: SingleChildScrollView(
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.all(28.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                   const SizedBox(height: 60),
                   
                   // App Logo/Icon
-                  GlassCard(
+                  Container(
                     padding: const EdgeInsets.all(32),
-                    borderRadius: BorderRadius.circular(40),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.borderLight, width: 1.5),
+                    ),
                     child: const Icon(
                       Icons.mic,
-                      size: 80,
+                      size: 64,
                       color: AppColors.primary,
                     ),
                   ),
@@ -80,24 +85,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   const SizedBox(height: 40),
                   
                   // Title
-                  const Text(
-                    'VoiceBridge',
-                    style: TextStyle(
-                      color: AppColors.textDark,
+                  Text(
+                    'VoiceBridge'.toUpperCase(),
+                    style: theme.textTheme.displayMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      fontSize: 48,
+                      letterSpacing: 2.0,
                     ),
                   ),
                   
                   const SizedBox(height: 16),
                   
                   // Subtitle
-                  const Text(
-                    'Master English Speaking\nwith AI-Powered Feedback',
-                    style: TextStyle(
-                      color: AppColors.textMedium,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                  Text(
+                    'ADVANCED ENGLISH SPEAKING\nAI-POWERED FEEDBACK',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      letterSpacing: 1.2,
+                      color: AppColors.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -111,9 +114,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                         child: ScaleTransition(
                           scale: _iconAnimations[0],
                           child: _buildFeatureCard(
-                            Icons.mic_none,
-                            'Practice\nSpeaking',
-                            AppColors.primary,
+                            Icons.graphic_eq,
+                            'PRACTICE',
+                            AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -122,9 +125,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                         child: ScaleTransition(
                           scale: _iconAnimations[1],
                           child: _buildFeatureCard(
-                            Icons.analytics_outlined,
-                            'Get AI\nFeedback',
-                            AppColors.secondary,
+                            Icons.auto_awesome,
+                            'ANALYZE',
+                            AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -133,9 +136,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                         child: ScaleTransition(
                           scale: _iconAnimations[2],
                           child: _buildFeatureCard(
-                            Icons.trending_up,
-                            'Track\nProgress',
-                            const Color(0xFFFF9600), // Duolingo orange
+                            Icons.insights,
+                            'TRACK',
+                            AppColors.accentRed, // Distinct Red Dot Element
                           ),
                         ),
                       ),
@@ -144,7 +147,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   
                   const SizedBox(height: 60),
                   
-                  // Buttons
+                  // Buttons using theme extensions automatically
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).push(
@@ -152,21 +155,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 56),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
+                      minimumSize: const Size(double.infinity, 60),
                     ),
-                    child: const Text(
-                      'Get Started',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: const Text('GET STARTED'),
                   ),
                   
                   const SizedBox(height: 16),
@@ -178,20 +169,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                       );
                     },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textDark,
-                      minimumSize: const Size(double.infinity, 56),
-                      side: const BorderSide(color: AppColors.borderMedium, width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      minimumSize: const Size(double.infinity, 60),
                     ),
-                    child: const Text(
-                      'I Already Have an Account',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: const Text('I HAVE AN ACCOUNT'),
                   ),
                   
                   const SizedBox(height: 40),
@@ -204,20 +184,26 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
   }
 
   Widget _buildFeatureCard(IconData icon, String label, Color color) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      borderRadius: BorderRadius.circular(16),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.borderLight),
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             label,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textDark,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              color: AppColors.textSecondary,
             ),
           ),
         ],

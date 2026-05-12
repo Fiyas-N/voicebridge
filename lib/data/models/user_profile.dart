@@ -75,6 +75,37 @@ class UserProfile {
     };
   }
 
+  factory UserProfile.fromDbMap(Map<String, dynamic> map) {
+    return UserProfile(
+      userId:               map['user_id'] as String? ?? '',
+      email:                map['email'] as String? ?? '',
+      displayName:          map['display_name'] as String? ?? '',
+      createdAt:            DateTime.fromMillisecondsSinceEpoch(map['last_synced_at'] as int? ?? DateTime.now().millisecondsSinceEpoch),
+      lastActiveAt:         DateTime.now(),
+      baselineCompleted:    (map['baseline_completed'] as int? ?? 0) == 1,
+      currentStreak:        map['current_streak'] as int? ?? 0,
+      longestStreak:        map['longest_streak'] as int? ?? 0,
+      totalSessions:        map['total_sessions'] as int? ?? 0,
+      xp:                   map['xp'] as int? ?? 0,
+      dailyGoal:            map['daily_goal'] as int? ?? 3,
+    );
+  }
+
+  Map<String, dynamic> toDbMap() {
+    return {
+      'user_id':             userId,
+      'email':                email,
+      'display_name':         displayName,
+      'baseline_completed':   baselineCompleted ? 1 : 0,
+      'current_streak':       currentStreak,
+      'longest_streak':       longestStreak,
+      'total_sessions':       totalSessions,
+      'xp':                   xp,
+      'daily_goal':           dailyGoal,
+      'last_synced_at':       DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
   UserProfile copyWith({
     String? userId,
     String? email,

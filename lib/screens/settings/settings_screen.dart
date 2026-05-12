@@ -1,10 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/common/glass_card.dart';
 import '../onboarding/welcome_screen.dart';
 import '../../core/theme/app_theme.dart';
+import '../../services/tts_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,64 +18,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _soundEnabled = true;
   bool _hapticEnabled = true;
+  bool _offlineOnly = false; // Default: Cloud Hybrid
+  bool _voiceIsMale = false;
 
-  // ─── Edit Profile Dialog ───────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+        _soundEnabled = prefs.getBool('audio_feedback_enabled') ?? true;
+        _hapticEnabled = prefs.getBool('haptic_output_enabled') ?? true;
+        _offlineOnly = prefs.getBool('use_offline_only') ?? false;
+        _voiceIsMale = prefs.getBool('tts_voice_is_male') ?? false;
+      });
+    }
+  }
+
+  Future<void> _toggleSetting(String key, bool val, Function(bool) updater) async {
+    setState(() => updater(val));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, val);
+  }
+
+  Future<void> _setOfflineMode(bool val) async {
+    setState(() => _offlineOnly = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('use_offline_only', val);
+  }
+
+  Future<void> _setVoiceGender(bool val) async {
+    setState(() => _voiceIsMale = val);
+    TtsService().setVoice(val); // Updates both runtime and storage
+  }
+
   void _showEditProfileDialog(BuildContext context, AuthProvider auth) {
-    final controller = TextEditingController(
-      text: auth.currentUser?.displayName ?? '',
-    );
+    final controller = TextEditingController(text: auth.currentUser?.displayName ?? '');
     showDialog(
       context: context,
       builder: (ctx) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: AlertDialog(
           backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text('Edit Name',
-              style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: AppColors.borderLight)),
+          title: const Text('RENAME_IDENTIFIER', style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 14)),
           content: TextField(
             controller: controller,
-            style: const TextStyle(color: AppColors.textDark),
+            style: const TextStyle(color: Colors.white),
+            autofocus: true,
             decoration: InputDecoration(
-              labelText: 'Display Name',
-              labelStyle: const TextStyle(color: AppColors.textMedium),
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.borderLight),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.primary),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: AppColors.backgroundOffWhite,
+              labelText: 'USER_TAG',
+              labelStyle: const TextStyle(color: AppColors.textTertiary, fontFamily: 'monospace', fontSize: 12),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.borderLight)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel',
-                  style: TextStyle(color: AppColors.textMedium)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL', style: TextStyle(color: Colors.white38, fontFamily: 'monospace'))),
             TextButton(
               onPressed: () async {
                 final name = controller.text.trim();
                 if (name.isEmpty) return;
                 Navigator.pop(ctx);
-                try {
-                  await auth.updateDisplayName(name);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
+                try { await auth.updateDisplayName(name); } catch (_) {}
               },
-              child: const Text('Save',
-                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+              child: const Text('COMMIT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
             ),
           ],
         ),
@@ -82,123 +95,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ─── Change Password Dialog ────────────────────────────────────────────────
   void _showChangePasswordDialog(BuildContext context, AuthProvider auth) {
-    final currentCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
+    final cCtrl = TextEditingController();
+    final nCtrl = TextEditingController();
+    final cfCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: AlertDialog(
           backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Change Password',
-              style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold)),
-          content: StatefulBuilder(
-            builder: (ctx, setDialogState) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _dialogTextField(currentCtrl, 'Current Password', obscure: true),
-                const SizedBox(height: 12),
-                _dialogTextField(newCtrl, 'New Password', obscure: true),
-                const SizedBox(height: 12),
-                _dialogTextField(confirmCtrl, 'Confirm New Password', obscure: true),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: AppColors.textMedium)),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (newCtrl.text != confirmCtrl.text) return;
-                Navigator.pop(ctx);
-                try {
-                  await auth.changePassword(
-                    currentPassword: currentCtrl.text,
-                    newPassword: newCtrl.text,
-                  );
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
-              },
-              child: const Text('Change',
-                  style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ─── Delete Account Dialog ─────────────────────────────────────────────────
-  void _showDeleteAccountDialog(BuildContext context, AuthProvider auth) {
-    final passwordCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Delete Account',
-              style: TextStyle(
-                  color: AppColors.error, fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: AppColors.borderLight)),
+          title: const Text('ROTATE_KEYS', style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 14)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'This will permanently delete your account and all session data. This cannot be undone.',
-                style: TextStyle(color: AppColors.textMedium),
-              ),
+              _dialogField(cCtrl, 'CURRENT_TOKEN', obscure: true),
               const SizedBox(height: 16),
-              _dialogTextField(passwordCtrl, 'Enter Your Password',
-                  obscure: true),
+              _dialogField(nCtrl, 'NEW_TOKEN', obscure: true),
+              const SizedBox(height: 16),
+              _dialogField(cfCtrl, 'CONFIRM_NEW', obscure: true),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel',
-                  style: TextStyle(color: AppColors.textMedium)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL', style: TextStyle(color: Colors.white38, fontFamily: 'monospace'))),
             TextButton(
               onPressed: () async {
-                if (passwordCtrl.text.isEmpty) return;
+                if (nCtrl.text != cfCtrl.text) return;
                 Navigator.pop(ctx);
-                try {
-                  await auth.deleteAccount(passwordCtrl.text);
-                  if (context.mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                          builder: (_) => const WelcomeScreen()),
-                      (route) => false,
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red),
-                    );
-                  }
-                }
+                try { await auth.changePassword(currentPassword: cCtrl.text, newPassword: nCtrl.text); } catch (_) {}
               },
-              child: const Text('Delete Account',
-                  style: TextStyle(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.bold)),
+              child: const Text('ROTATE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
             ),
           ],
         ),
@@ -206,39 +134,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ─── Logout Dialog ────────────────────────────────────────────────────────
+  void _showDeleteAccountDialog(BuildContext context, AuthProvider auth) {
+    final passCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: AppColors.accentRed)),
+          title: const Text('PURGE_DATA', style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accentRed)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Confirm destruction sequence. All recorded logs wiped permanently.', style: TextStyle(color: Colors.white60, fontSize: 13)),
+              const SizedBox(height: 20),
+              _dialogField(passCtrl, 'AUTH_TOKEN', obscure: true),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ABORT', style: TextStyle(color: Colors.white60, fontFamily: 'monospace'))),
+            TextButton(
+              onPressed: () async {
+                if (passCtrl.text.isEmpty) return;
+                Navigator.pop(ctx);
+                try {
+                  await auth.deleteAccount(passCtrl.text);
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const WelcomeScreen()), (r) => false);
+                  }
+                } catch (_) {}
+              },
+              child: const Text('EXECUTE_WIPE', style: TextStyle(color: AppColors.accentRed, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showLogoutDialog(BuildContext context, AuthProvider authProvider) {
     showDialog(
       context: context,
-      builder: (context) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: AlertDialog(
           backgroundColor: AppColors.surface,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Log Out',
-              style: TextStyle(color: AppColors.textDark)),
-          content: const Text('Are you sure you want to log out?',
-              style: TextStyle(color: AppColors.textMedium)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: AppColors.borderLight)),
+          title: const Text('TERMINATE_SESSION', style: TextStyle(fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.bold)),
+          content: const Text('Confirm session termination?', style: TextStyle(color: Colors.white60)),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel',
-                  style:
-                      TextStyle(color: AppColors.textMedium)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('STAY', style: TextStyle(color: Colors.white60, fontFamily: 'monospace'))),
             TextButton(
               onPressed: () {
                 authProvider.signOut();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                  (route) => false,
-                );
+                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const WelcomeScreen()), (r) => false);
               },
-              child: const Text('Log Out',
-                  style: TextStyle(
-                      color: AppColors.error,
-                      fontWeight: FontWeight.bold)),
+              child: const Text('EXIT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
             ),
           ],
         ),
@@ -246,431 +198,208 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ─── Helper Widgets ───────────────────────────────────────────────────────
-  TextField _dialogTextField(TextEditingController ctrl, String label,
-      {bool obscure = false}) {
+  Widget _dialogField(TextEditingController ctrl, String tag, {bool obscure = false}) {
     return TextField(
       controller: ctrl,
       obscureText: obscure,
-      style: const TextStyle(color: AppColors.textDark),
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: AppColors.textMedium),
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.borderLight),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.primary),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: AppColors.backgroundOffWhite,
+        labelText: tag,
+        labelStyle: const TextStyle(color: AppColors.textTertiary, fontFamily: 'monospace', fontSize: 12),
+        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: AppColors.borderLight)),
+        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white)),
       ),
     );
   }
 
-  Widget _buildGlassSwitchTile(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    bool value,
-    ValueChanged<bool> onChanged,
-  ) {
-    return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Icon(icon, color: AppColors.primary),
-      title: Text(
-        title,
-        style: Theme.of(context)
-            .textTheme
-            .bodyLarge
-            ?.copyWith(fontWeight: FontWeight.w600, color: AppColors.textDark),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(context)
-            .textTheme
-            .bodySmall
-            ?.copyWith(color: AppColors.textMedium),
-      ),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-        activeColor: AppColors.primary,
-        activeTrackColor: AppColors.primary.withValues(alpha: 0.5),
-      ),
-    );
-  }
-
-  Widget _buildGlassActionTile(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    VoidCallback onTap, {
-    Color? iconColor,
-    Color? titleColor,
-  }) {
-    return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: Icon(icon, color: iconColor ?? AppColors.primary),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: titleColor ?? AppColors.textDark,
-            ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(context)
-            .textTheme
-            .bodySmall
-            ?.copyWith(color: AppColors.textMedium),
-      ),
-      trailing:
-          const Icon(Icons.chevron_right, color: AppColors.borderMedium),
-      onTap: onTap,
-    );
-  }
-
-  // ─── Build ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
-    final user = auth.currentUser;
+    final u = auth.currentUser;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundOffWhite,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                // App Bar
-                SliverAppBar(
-                  expandedHeight: 120,
-                  floating: false,
-                  pinned: true,
-                  backgroundColor: AppColors.backgroundOffWhite,
-                  elevation: 0,
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Container(
-                      color: AppColors.backgroundOffWhite,
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Profile & Settings',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .displayMedium
-                                    ?.copyWith(
-                                        color: AppColors.textDark,
-                                        fontWeight: FontWeight.bold),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              backgroundColor: Colors.transparent, elevation: 0, pinned: true,
+              leading: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
+              title: const Text('SYSTEM_PREFERENCES', style: TextStyle(fontFamily: 'monospace', fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (u != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderLight),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 60, height: 60,
+                              decoration: BoxDecoration(color: Colors.white10, shape: BoxShape.circle, border: Border.all(color: AppColors.borderLight)),
+                              alignment: Alignment.center,
+                              child: Text(u.displayName.isNotEmpty ? u.displayName[0].toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(u.displayName.isNotEmpty ? u.displayName : 'ANONYMOUS', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1)),
+                                  const SizedBox(height: 4),
+                                  Text(u.email, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                                ],
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Manage your account and preferences',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                        color: AppColors.textMedium),
-                              ),
-                            ],
-                          ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.white54, size: 20),
+                              onPressed: () => _showEditProfileDialog(context, auth),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                ),
+                      const SizedBox(height: 32),
+                    ],
 
-                // Content
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // ── Profile Card ────────────────────────────────────
-                        if (user != null) ...[
-                          GlassCard(
-                            blur: 15,
-                            opacity: 1.0,
-                            padding: const EdgeInsets.all(20),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 70,
-                                  height: 70,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      user.displayName.isNotEmpty
-                                          ? user.displayName[0].toUpperCase()
-                                          : 'U',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .displayMedium
-                                          ?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        user.displayName.isNotEmpty
-                                            ? user.displayName
-                                            : 'User',
-                                        style: const TextStyle(
-                                            color: AppColors.textDark,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        user.email,
-                                        style: const TextStyle(
-                                            color: AppColors.textMedium,
-                                            fontSize: 14),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          _statChip(
-                                              '🔥 ${user.currentStreak}d'),
-                                          const SizedBox(width: 8),
-                                          _statChip(
-                                              '📝 ${user.totalSessions}'),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit,
-                                      color: AppColors.primary),
-                                  onPressed: () =>
-                                      _showEditProfileDialog(context, auth),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 28),
+                    const _Label(txt: 'TELEMETRY'),
+                    const SizedBox(height: 12),
+                    _TileGroup(children: [
+                      _SwitchTile(
+                        lbl: 'PUSH_NOTIFICATIONS',
+                        sub: 'Daily cycle alerts',
+                        val: _notificationsEnabled,
+                        fn: (v) => _toggleSetting('notifications_enabled', v, (b) => _notificationsEnabled = b),
+                      ),
+                      _SwitchTile(
+                        lbl: 'AUDIO_FEEDBACK',
+                        sub: 'Interface auditory signal',
+                        val: _soundEnabled,
+                        fn: (v) => _toggleSetting('audio_feedback_enabled', v, (b) => _soundEnabled = b),
+                      ),
+                      _SwitchTile(
+                        lbl: 'HAPTIC_OUTPUT',
+                        sub: 'Physical response triggers',
+                        val: _hapticEnabled,
+                        fn: (v) => _toggleSetting('haptic_output_enabled', v, (b) => _hapticEnabled = b),
+                      ),
+                    ]),
+                    const SizedBox(height: 32),
+
+                    const _Label(txt: 'AI_ENGINE_PREFERENCES'),
+                    const SizedBox(height: 12),
+                    _TileGroup(children: [
+                      _SwitchTile(
+                        lbl: 'FULL_OFFLINE_MODE',
+                        sub: 'Bypass cloud accelerators entirely',
+                        val: _offlineOnly,
+                        fn: _setOfflineMode,
+                      ),
+                      _SwitchTile(
+                        lbl: 'SYNTHESIS_GENDER_MALE',
+                        sub: 'Toggle default speaker persona',
+                        val: _voiceIsMale,
+                        fn: _setVoiceGender,
+                      ),
+                    ]),
+                    const SizedBox(height: 32),
+
+                    const _Label(txt: 'AUTHENTICATION'),
+                    const SizedBox(height: 12),
+                    _TileGroup(children: [
+                      _ActionTile(lbl: 'RESET_CREDS', sub: 'Trigger email gateway relay', fn: () async {
+                        try { await auth.sendPasswordReset(); } catch (_) {}
+                      }),
+                      _ActionTile(lbl: 'MANUAL_TOKEN_ROTATION', sub: 'Edit current passphrase', fn: () => _showChangePasswordDialog(context, auth)),
+                    ]),
+                    const SizedBox(height: 32),
+
+                    const _Label(txt: 'TERMINATION'),
+                    const SizedBox(height: 12),
+                    _TileGroup(children: [
+                      _ActionTile(lbl: 'LOG_OUT', sub: 'Disconnect pipeline stream', fn: () => _showLogoutDialog(context, auth)),
+                      _ActionTile(lbl: 'DESTROY_PROFILE', sub: 'Irreversible data deletion', isDanger: true, fn: () => _showDeleteAccountDialog(context, auth)),
+                    ]),
+
+                    const SizedBox(height: 40),
+                    Center(
+                      child: Column(
+                        children: [
+                          Text('CORE_MODULE_VER // 1.2.0', style: TextStyle(color: Colors.white10, fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                          const SizedBox(height: 4),
+                          Text('ANTIGRAVITY_REBOOT_DESIGN', style: TextStyle(color: Colors.white.withValues(alpha: 0.05), fontFamily: 'monospace', fontSize: 9)),
                         ],
-
-                        // ── Practice Preferences ────────────────────────────
-                        _sectionLabel(context, 'Practice Preferences'),
-                        const SizedBox(height: 12),
-                        GlassCard(
-                          blur: 15,
-                          opacity: 0.2,
-                          padding: EdgeInsets.zero,
-                          child: Column(
-                            children: [
-                              _buildGlassSwitchTile(
-                                context,
-                                Icons.notifications_outlined,
-                                'Daily Reminders',
-                                'Get notified to practice each day',
-                                _notificationsEnabled,
-                                (v) => setState(
-                                    () => _notificationsEnabled = v),
-                              ),
-                              const Divider(
-                                  height: 1,
-                                  color: AppColors.borderLight),
-                              _buildGlassSwitchTile(
-                                context,
-                                Icons.volume_up_outlined,
-                                'Sound Effects',
-                                'Play sounds on interactions',
-                                _soundEnabled,
-                                (v) => setState(() => _soundEnabled = v),
-                              ),
-                              const Divider(
-                                  height: 1,
-                                  color: AppColors.borderLight),
-                              _buildGlassSwitchTile(
-                                context,
-                                Icons.vibration_outlined,
-                                'Haptic Feedback',
-                                'Vibrate on button presses',
-                                _hapticEnabled,
-                                (v) => setState(() => _hapticEnabled = v),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-
-                        // ── Account Management ──────────────────────────────
-                        _sectionLabel(context, 'Account'),
-                        const SizedBox(height: 12),
-                        GlassCard(
-                          blur: 15,
-                          opacity: 0.2,
-                          padding: EdgeInsets.zero,
-                          child: Column(
-                            children: [
-                              _buildGlassActionTile(
-                                context,
-                                Icons.person_outline,
-                                'Edit Display Name',
-                                'Change how your name appears',
-                                () => _showEditProfileDialog(context, auth),
-                              ),
-                              const Divider(
-                                  height: 1,
-                                  color: AppColors.borderLight),
-                              _buildGlassActionTile(
-                                context,
-                                Icons.lock_outline,
-                                'Change Password',
-                                'Update your sign-in password',
-                                () =>
-                                    _showChangePasswordDialog(context, auth),
-                              ),
-                              const Divider(
-                                  height: 1,
-                                  color: AppColors.borderLight),
-                              _buildGlassActionTile(
-                                context,
-                                Icons.email_outlined,
-                                'Reset Password via Email',
-                                'Send a password reset link to ${auth.currentUser?.email ?? ''}',
-                                () async {
-                                  try {
-                                    await auth.sendPasswordReset();
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(const SnackBar(
-                                        content: Text(
-                                            'Password reset email sent!'),
-                                        backgroundColor: Colors.green,
-                                      ));
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(SnackBar(
-                                        content: Text('Error: $e'),
-                                        backgroundColor: Colors.red,
-                                      ));
-                                    }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-
-                        // ── Danger Zone ─────────────────────────────────────
-                        _sectionLabel(context, 'Danger Zone'),
-                        const SizedBox(height: 12),
-                        GlassCard(
-                          blur: 15,
-                          opacity: 0.2,
-                          padding: EdgeInsets.zero,
-                          child: Column(
-                            children: [
-                              _buildGlassActionTile(
-                                context,
-                                Icons.logout,
-                                'Log Out',
-                                'Sign out of your account',
-                                () => _showLogoutDialog(context, auth),
-                                iconColor: Colors.orange,
-                                titleColor: Colors.orange,
-                              ),
-                              const Divider(
-                                  height: 1,
-                                  color: AppColors.borderLight),
-                              _buildGlassActionTile(
-                                context,
-                                Icons.delete_forever_outlined,
-                                'Delete Account',
-                                'Permanently remove your account and data',
-                                () => _showDeleteAccountDialog(context, auth),
-                                iconColor: Colors.redAccent,
-                                titleColor: Colors.redAccent,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-
-                        // ── App Info ─────────────────────────────────────────
-                        const Center(
-                          child: Text(
-                            'VoiceBridge v1.0.0',
-                            style: TextStyle(
-                                color: AppColors.textMedium,
-                                fontSize: 13),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Center(
-                          child: Text(
-                            'Your Speaking Practice Partner',
-                            style: TextStyle(
-                                color: AppColors.textMedium,
-                                fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 40),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _sectionLabel(BuildContext context, String label) {
-    return Text(
-      label,
-      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-            color: AppColors.textDark,
-            fontWeight: FontWeight.bold,
-          ),
-    );
-  }
+class _Label extends StatelessWidget {
+  final String txt;
+  const _Label({required this.txt});
+  @override
+  Widget build(BuildContext context) => Text(txt, style: const TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textTertiary, letterSpacing: 2));
+}
 
-  Widget _statChip(String text) {
+class _TileGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _TileGroup({required this.children});
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child:
-          Text(text, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderLight)),
+      child: Column(children: children),
+    );
+  }
+}
+
+class _SwitchTile extends StatelessWidget {
+  final String lbl;
+  final String sub;
+  final bool val;
+  final ValueChanged<bool> fn;
+  const _SwitchTile({required this.lbl, required this.sub, required this.val, required this.fn});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(lbl, style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white70)),
+      subtitle: Text(sub, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+      trailing: Switch(value: val, onChanged: fn, activeColor: Colors.white, activeTrackColor: Colors.white24),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  final String lbl;
+  final String sub;
+  final VoidCallback fn;
+  final bool isDanger;
+  const _ActionTile({required this.lbl, required this.sub, required this.fn, this.isDanger = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: fn,
+      title: Text(lbl, style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11, color: isDanger ? AppColors.accentRed : Colors.white70)),
+      subtitle: Text(sub, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+      trailing: Icon(Icons.chevron_right, size: 16, color: isDanger ? AppColors.accentRed.withValues(alpha: 0.5) : Colors.white24),
     );
   }
 }
