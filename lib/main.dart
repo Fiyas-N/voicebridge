@@ -14,9 +14,24 @@ import 'services/local_llm_service.dart';
 import 'services/firebase_service.dart';
 import 'services/language_detection_service.dart';
 import 'services/sync_service.dart';
+import 'services/notification_service.dart';
 import 'screens/onboarding/welcome_screen.dart';
 import 'screens/setup/model_setup_screen.dart';
 import 'widgets/common/main_navigation.dart';
+
+void _logGeminiConfigHint() {
+  final key = dotenv.env['GEMINI_API_KEY']?.trim() ?? '';
+  if (key.isEmpty) {
+    debugPrint(
+      'VoiceBridge: GEMINI_API_KEY is empty — Gemini TTS/LLM will not work. '
+      'Add a key from Google AI Studio to .env, or ship Kokoro files under assets/models/kokoro/ for natural offline voice.',
+    );
+  } else if (key.length < 16) {
+    debugPrint(
+      'VoiceBridge: GEMINI_API_KEY looks too short — if cloud calls return 400, replace it with a valid Generative Language API key.',
+    );
+  }
+}
 
 void main() {
   runZonedGuarded(() async {
@@ -67,6 +82,7 @@ class _VoiceBridgeAppState extends State<VoiceBridgeApp> {
       } catch (e) {
         debugPrint('Warning: .env failed to load, using defaults: $e');
       }
+      _logGeminiConfigHint();
 
       // 2. Initialize Firebase
       await Firebase.initializeApp();
@@ -75,6 +91,13 @@ class _VoiceBridgeAppState extends State<VoiceBridgeApp> {
       // 3. Initialize local database
       await DatabaseHelper.instance.database;
       debugPrint('Database ready');
+
+      try {
+        await NotificationService.instance.init();
+        await NotificationService.instance.syncWithStoredPreference();
+      } catch (e) {
+        debugPrint('Non-fatal: notification service init: $e');
+      }
 
       // 4. AI Services (Lazy Init - don't crash the app if these fail)
       // We don't await these here anymore to prevent startup hangups

@@ -77,11 +77,8 @@ Start by giving a warm, natural greeting (with an expressive touch).''';
       aiResponse += chunk;
     }
 
-    turns.add(ConversationTurn(
-      isUser: false,
-      text: aiResponse,
-      timestamp: DateTime.now(),
-    ));
+    // Opening is shown only via [ConversationScreen._handleStreamingAIResponse],
+    // which appends a single AI turn. Adding here duplicated the first message.
     return aiResponse;
   }
 

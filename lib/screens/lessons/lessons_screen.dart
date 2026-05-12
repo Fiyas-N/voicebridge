@@ -89,7 +89,7 @@ class _LessonsScreenState extends State<LessonsScreen> with SingleTickerProvider
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          'LESSON MATRIX'.toUpperCase(),
+          'Lessons',
           style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16),
         ),
         bottom: PreferredSize(
@@ -165,12 +165,12 @@ class _LessonsScreenState extends State<LessonsScreen> with SingleTickerProvider
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'LEVEL PROGRESS ($cefr)',
+                          'Level $cefr',
                           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '$completedCount / ${lessons.length} MODULES READY',
+                          '$completedCount of ${lessons.length} lessons done',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -248,7 +248,7 @@ class _LessonsScreenState extends State<LessonsScreen> with SingleTickerProvider
                       children: [
                         Expanded(
                           child: Text(
-                            lesson.topic.toUpperCase(),
+                            lesson.topic,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5),
                           ),
                         ),

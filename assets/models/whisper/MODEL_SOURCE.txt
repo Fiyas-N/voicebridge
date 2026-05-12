@@ -1,0 +1,20 @@
+VoiceBridge — Whisper asset for offline STT
+=============================================
+
+Required filename (exact) for bundled offline copy:
+  ggml-tiny.bin
+
+Place this file in this directory:
+  assets/models/whisper/ggml-tiny.bin
+
+(whisper_flutter_new uses WhisperModel.tiny → ggml-tiny.bin under app support dir; it can
+auto-download the same file from Hugging Face on first use if missing.)
+
+Typical source (verify license for your use case):
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+
+After adding the file, run:
+  flutter pub get
+  flutter run
+
+Without this file, LocalSttService cannot copy weights to device storage and transcription will stay empty.

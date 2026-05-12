@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Auth Failure: ${e.toString().replaceAll('Exception: ', '')}'),
+          content: Text('Sign-in failed: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.error,
         ));
         setState(() => _isLoading = false);
@@ -52,12 +52,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleForgotPassword() async {
     final e = _emailController.text.trim();
     if (e.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('INPUT_REQUIRED: EMAIL'), backgroundColor: AppColors.warning));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email first.'), backgroundColor: AppColors.warning));
       return;
     }
     try {
       await Provider.of<AuthProvider>(context, listen: false).sendPasswordResetForEmail(e);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('RESET_LINK_DISPATCHED'), backgroundColor: AppColors.success));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('If an account exists, we sent a reset link to your email.'), backgroundColor: AppColors.success));
     } catch (_) {}
   }
 
@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 32),
               Text(
-                'SYSTEM_ACCESS'.toUpperCase(),
+                'Log in',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontFamily: 'monospace',
@@ -99,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'INPUT AUTHORIZATION CREDENTIALS',
+                'Enter your email and password',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontFamily: 'monospace', letterSpacing: 1),
               ),
@@ -117,15 +117,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       _buildInput(
                         ctrl: _emailController,
-                        lbl: 'USER_EMAIL',
-                        ht: 'ENTER IDENTIFIER',
+                        lbl: 'Email',
+                        ht: 'you@example.com',
                         icon: Icons.alternate_email,
                         val: Validators.validateEmail,
                       ),
                       const SizedBox(height: 20),
                       _buildInput(
                         ctrl: _passwordController,
-                        lbl: 'ACCESS_TOKEN',
+                        lbl: 'Password',
                         ht: '••••••••',
                         icon: Icons.lock_outline,
                         obsc: true,
@@ -140,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _isLoading ? null : _handleLogin,
                           child: _isLoading
                               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                              : const Text('AUTHENTICATE'),
+                              : const Text('Log in'),
                         ),
                       ),
                     ],
@@ -150,16 +150,16 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
               TextButton(
                 onPressed: _handleForgotPassword,
-                child: const Text('FORGOT_PASSKEY', style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.bold)),
+                child: const Text('Forgot password?', style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('NO_ACCOUNT? ', style: TextStyle(color: Colors.white38, fontFamily: 'monospace', fontSize: 11)),
+                  const Text('No account? ', style: TextStyle(color: Colors.white38, fontFamily: 'monospace', fontSize: 11)),
                   GestureDetector(
                     onTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const SignupScreen())),
-                    child: const Text('INITIALIZE_NEW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, fontFamily: 'monospace', fontSize: 11)),
+                    child: const Text('Create one', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, fontFamily: 'monospace', fontSize: 11)),
                   ),
                 ],
               ),

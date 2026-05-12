@@ -113,7 +113,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          'ANALYTICS'.toUpperCase(),
+          'Your progress',
           style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16),
         ),
       ),
@@ -139,12 +139,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
             const Icon(Icons.analytics_outlined, size: 64, color: AppColors.textTertiary),
             const SizedBox(height: 24),
             const Text(
-              'INSUFFICIENT DATA',
+              'Not enough data yet',
               style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 8),
             const Text(
-              'Complete tracking modules to render insights.',
+              'Complete a few practice sessions to see trends and averages.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textTertiary),
             ),
@@ -178,10 +178,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
           crossAxisSpacing: 12,
           childAspectRatio: 1.3,
           children: [
-            _buildStatCard('🔥', 'STREAK', '$_currentStreak'),
-            _buildStatCard('📊', 'LOGS', '$_totalSessions'),
-            _buildStatCard('🏆', 'BEST', '${bestScore.round()}'),
-            _buildStatCard('🎯', 'CEFR_BAND', avgBand.toStringAsFixed(1)),
+            _buildStatCard('🔥', 'Streak', '$_currentStreak'),
+            _buildStatCard('📊', 'Sessions', '$_totalSessions'),
+            _buildStatCard('🏆', 'Best score', '${bestScore.round()}'),
+            _buildStatCard('🎯', 'Avg IELTS band', avgBand.toStringAsFixed(1)),
           ],
         ),
         const SizedBox(height: 32),
@@ -201,7 +201,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'RENDERING TREND',
+                    'Score trend',
                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontFamily: 'monospace'),
                   ),
                   if (trend != null)
@@ -223,7 +223,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
         // Breakdown
         const Text(
-          'CORE METRICS',
+          'Averages',
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AppColors.textTertiary),
         ),
         const SizedBox(height: 16),
@@ -236,11 +236,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
           ),
           child: Column(
             children: [
-              _buildSkillCard('FLUENCY', _averageScores['fluency']!.toInt(), Icons.speed_rounded),
+              _buildSkillCard('Fluency', _averageScores['fluency']!.toInt(), Icons.speed_rounded),
               const SizedBox(height: 24),
-              _buildSkillCard('GRAMMAR', _averageScores['grammar']!.toInt(), Icons.data_object_rounded),
+              _buildSkillCard('Grammar', _averageScores['grammar']!.toInt(), Icons.data_object_rounded),
               const SizedBox(height: 24),
-              _buildSkillCard('PHONETICS', _averageScores['pronunciation']!.toInt(), Icons.record_voice_over_outlined),
+              _buildSkillCard('Pronunciation', _averageScores['pronunciation']!.toInt(), Icons.record_voice_over_outlined),
             ],
           ),
         ),
@@ -290,7 +290,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   Widget _buildScoreTrendChart() {
     if (_sessions.length < 2) {
-      return const Center(child: Text('DATA SET MIN 2', style: TextStyle(fontFamily: 'monospace', fontSize: 10)));
+      return const Center(child: Text('Add at least two sessions to see a chart', style: TextStyle(fontFamily: 'monospace', fontSize: 10)));
     }
 
     final recentSessions = _sessions.take(10).toList().reversed.toList();

@@ -26,13 +26,13 @@ class BaselineAssessmentScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               const Text(
-                'CALIBRATION_REQUIRED',
+                'Quick baseline',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontFamily: 'monospace', fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2),
               ),
               const SizedBox(height: 12),
               const Text(
-                'ESTABLISHING PERFORMANCE BASELINE',
+                'One short recording helps us tailor feedback to your level.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textTertiary, fontSize: 11, fontFamily: 'monospace'),
               ),
@@ -47,12 +47,12 @@ class BaselineAssessmentScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('PROCEDURE_PARAMETERS:', style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.textTertiary)),
+                    const Text('What to expect', style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.textTertiary)),
                     const SizedBox(height: 20),
-                    _buildItem('SINGLE_INSTANCE RUN'),
-                    _buildItem('INTERVAL: 30-45 SECONDS'),
-                    _buildItem('PROMPT_DRIVEN SPEECH'),
-                    _buildItem('REALTIME_ANALYSIS ENGINE'),
+                    _buildItem('One guided recording'),
+                    _buildItem('About 30–45 seconds of speaking'),
+                    _buildItem('Follow the on-screen prompt'),
+                    _buildItem('Instant feedback after you finish'),
                   ],
                 ),
               ),
@@ -70,7 +70,7 @@ class BaselineAssessmentScreen extends StatelessWidget {
                     ),
                   );
                 },
-                child: const Text('INITIALIZE_SEQUENCE'),
+                child: const Text('Start baseline'),
               ),
             ],
           ),

@@ -15,12 +15,12 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String _cefrLabel(String cefr) {
     switch (cefr) {
-      case 'C2': return 'MASTERY';
-      case 'C1': return 'ADVANCED';
-      case 'B2': return 'HIGH_INTER';
-      case 'B1': return 'INTERMEDIATE';
-      case 'A2': return 'ELEMENTARY';
-      default: return 'BEGINNER';
+      case 'C2': return 'Mastery';
+      case 'C1': return 'Advanced';
+      case 'B2': return 'Strong intermediate';
+      case 'B1': return 'Intermediate';
+      case 'A2': return 'Elementary';
+      default: return 'Beginner';
     }
   }
 
@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           slivers: [
             SliverAppBar(
               backgroundColor: Colors.transparent, elevation: 0, pinned: true,
-              title: const Text('USER_PROFILE', style: TextStyle(fontFamily: 'monospace', fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+              title: const Text('Profile', style: TextStyle(fontFamily: 'monospace', fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.settings_outlined, color: Colors.white),
@@ -67,14 +67,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Text(user?.displayName.isNotEmpty == true ? user!.displayName[0].toUpperCase() : '?', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(height: 16),
-                          Text(user?.displayName.isNotEmpty == true ? user!.displayName : 'ANONYMOUS_U', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                          Text(user?.displayName.isNotEmpty == true ? user!.displayName : 'Guest', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
                           const SizedBox(height: 4),
-                          Text(user?.email ?? 'NOT_LINKED', style: const TextStyle(color: AppColors.textTertiary, fontSize: 12, fontFamily: 'monospace')),
+                          Text(user?.email ?? 'No email on file', style: const TextStyle(color: AppColors.textTertiary, fontSize: 12, fontFamily: 'monospace')),
                           const SizedBox(height: 24),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: BoxDecoration(border: Border.all(color: Colors.white), borderRadius: BorderRadius.circular(8)),
-                            child: Text('RANK // $cefr ${_cefrLabel(cefr)}', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11)),
+                            child: Text('Level $cefr · ${_cefrLabel(cefr)}', style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11)),
                           ),
                         ],
                       ),
@@ -84,34 +84,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     // Activity Grid
                     Row(
                       children: [
-                        Expanded(child: _statBox('STREAK', '${user?.currentStreak ?? 0}', 'DAYS')),
+                        Expanded(child: _statBox('Streak', '${user?.currentStreak ?? 0}', 'days')),
                         const SizedBox(width: 12),
-                        Expanded(child: _statBox('TESTS', '${user?.totalSessions ?? 0}', 'RUNS')),
+                        Expanded(child: _statBox('Sessions', '${user?.totalSessions ?? 0}', 'total')),
                         const SizedBox(width: 12),
-                        Expanded(child: _statBox('RECORD', '${user?.longestStreak ?? 0}', 'MAX')),
+                        Expanded(child: _statBox('Best streak', '${user?.longestStreak ?? 0}', 'days')),
                       ],
                     ),
                     const SizedBox(height: 32),
 
                     // Baseline Data
                     if (user?.baselineScores != null) ...[
-                      const Text('BASELINE_METRICS', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.textTertiary)),
+                      const Text('Starting scores', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.textTertiary)),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderLight)),
                         child: Column(
                           children: [
-                            _miniBar('FLUENCY', user!.baselineScores!.fluency),
+                            _miniBar('Fluency', user!.baselineScores!.fluency),
                             const SizedBox(height: 16),
-                            _miniBar('GRAMMAR', user.baselineScores!.grammar),
+                            _miniBar('Grammar', user.baselineScores!.grammar),
                             const SizedBox(height: 16),
-                            _miniBar('PRONUNCIATION', user.baselineScores!.pronunciation),
+                            _miniBar('Pronunciation', user.baselineScores!.pronunciation),
                             const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(color: AppColors.borderLight)),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('COMPOSITE_INDEX', style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textTertiary)),
+                                const Text('Overall', style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textTertiary)),
                                 Text('${user.baselineScores!.composite.toStringAsFixed(1)}%', style: const TextStyle(fontFamily: 'monospace', fontSize: 14, fontWeight: FontWeight.bold)),
                               ],
                             )
@@ -123,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     // Improvement Flags
                     if (user?.weakAreas.isNotEmpty == true) ...[
-                      const Text('FLAGGED_VULNERABILITIES', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.accentRed)),
+                      const Text('Focus areas', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.accentRed)),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -133,21 +133,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: user!.weakAreas.map((area) => Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(border: Border.all(color: AppColors.accentRed.withValues(alpha: 0.4)), borderRadius: BorderRadius.circular(6)),
-                            child: Text(area.toUpperCase(), style: const TextStyle(fontSize: 10, color: AppColors.accentRed, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                            child: Text(area, style: const TextStyle(fontSize: 10, color: AppColors.accentRed, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
                           )).toList(),
                         ),
                       ),
                       const SizedBox(height: 32),
                     ],
 
-                    const Text('OPERATIONS', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.textTertiary)),
+                    const Text('Shortcuts', style: TextStyle(fontFamily: 'monospace', fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.textTertiary)),
                     const SizedBox(height: 12),
                     Container(
                       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.borderLight)),
                       child: ListTile(
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
                         leading: const Icon(Icons.settings_applications, color: Colors.white70),
-                        title: const Text('LAUNCH_SETTINGS', style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold)),
+                        title: const Text('Open settings', style: TextStyle(fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold)),
                         trailing: const Icon(Icons.chevron_right, size: 16, color: Colors.white24),
                       ),
                     ),

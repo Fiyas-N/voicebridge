@@ -73,6 +73,7 @@ class Session {
         pronunciation: (json['pronunciation_score'] as num).toDouble(),
         composite: (json['composite_score'] as num).toDouble(),
         estimatedIELTSBand: (json['estimated_band'] as num? ?? 0).toDouble(),
+        cefrLevel: pick<String>('cefr_level', 'cefrLevel') ?? 'A1',
       );
     } else if (json['scores'] != null) {
       scores = SessionScores.fromJson(json['scores'] as Map<String, dynamic>);

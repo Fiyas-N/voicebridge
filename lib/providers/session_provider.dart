@@ -12,7 +12,10 @@ import '../services/gamification_service.dart';
 import '../services/language_detection_service.dart';
 import '../services/local_llm_service.dart';
 import '../services/local_stt_service.dart';
+import '../services/cloud_llm_service.dart';
+import '../services/tts_service.dart';
 import '../core/constants/app_constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Tracks which phase of the AI pipeline is currently running.
 /// The UI uses this to show progressive results rather than a blank spinner.
@@ -48,12 +51,21 @@ class SessionProvider with ChangeNotifier {
   /// FeedbackScreen reads this to show a 'Please speak in English' card.
   String? languageWarning;
 
+  /// Last failure from [submitRecording], for Feedback when scores never arrive.
+  String? _pipelineError;
+  String? get pipelineError => _pipelineError;
+
   SessionProvider(this._dbHelper, this._audioService, this._firebaseService);
 
   Session? get currentSession => _currentSession;
   bool get isRecording => _isRecording;
   bool get isProcessing => _isProcessing;
   double get recordingDuration => _recordingDuration;
+
+  void clearPipelineError() {
+    _pipelineError = null;
+    notifyListeners();
+  }
 
   Future<void> startRecording(Prompt prompt, String userId, {bool isBaseline = false}) async {
     final sessionId = const Uuid().v4();
@@ -105,8 +117,11 @@ class SessionProvider with ChangeNotifier {
     if (!_isRecording || _currentSession == null) return;
 
     try {
-      await _audioService.stopRecording();
-      
+      final stoppedPath = await _audioService.stopRecording();
+      final audioPath = (stoppedPath != null && stoppedPath.isNotEmpty)
+          ? stoppedPath
+          : _currentSession!.audioLocalPath;
+
       // Use the actual recorded duration from the timer
       final duration = _recordingDuration;
       
@@ -119,6 +134,7 @@ class SessionProvider with ChangeNotifier {
       _currentSession = _currentSession!.copyWith(
         status: SessionStatus.pendingUpload,
         audioDuration: duration,
+        audioLocalPath: audioPath,
       );
       
       _isRecording = false;
@@ -141,6 +157,7 @@ class SessionProvider with ChangeNotifier {
     earlyTranscript = null;
     feedbackStream = null;
     languageWarning = null; // reset per session
+    _pipelineError = null;
     pipelineStage = PipelineStage.transcribing;
     notifyListeners();
 
@@ -154,7 +171,11 @@ class SessionProvider with ChangeNotifier {
       final transcription = await sttService.transcribe(_currentSession!.audioLocalPath!);
 
       if (transcription.transcript.trim().isEmpty) {
-        throw Exception('No speech detected — please try again.');
+        throw Exception(
+          'No speech detected. If this is your first analysis, connect to the internet once so '
+          'the speech model can download (~75 MB), then try again. '
+          'You can also place ggml-tiny.bin under assets/models/whisper/ for offline installs.',
+        );
       }
 
       // Publish transcript immediately so the UI can navigate forward NOW.
@@ -203,7 +224,6 @@ class SessionProvider with ChangeNotifier {
       notifyListeners();
 
       debugPrint('Provider: Loading Gemma for streamed feedback…');
-      await llm.loadModel();
 
       final mispronounced = transcription.words
           .where((w) => w.confidence < 0.65 && w.word.length > 2)
@@ -227,7 +247,46 @@ class SessionProvider with ChangeNotifier {
       feedbackStream = streamController.stream;
       notifyListeners(); // FeedbackScreen subscribes to feedbackStream
 
-      final rawStream = await llm.generateResponseStream(feedbackPrompt);
+      late Stream<String> rawStream;
+      try {
+        await llm.loadModel();
+        rawStream = await llm.generateResponseStream(feedbackPrompt, skipLoad: true);
+      } catch (e) {
+        debugPrint('Provider: On-device LLM unavailable ($e) — attempting cloud feedback…');
+        final prefs = await SharedPreferences.getInstance();
+        final offlineOnly = prefs.getBool('use_offline_only') ?? false;
+        final cloud = CloudLlmService();
+        if (!offlineOnly && await cloud.isOnline()) {
+          try {
+            rawStream = await cloud.streamGemini(feedbackPrompt);
+          } catch (e2) {
+            debugPrint('Provider: Gemini stream failed ($e2) — Groq…');
+            try {
+              rawStream = await cloud.streamGroq(feedbackPrompt);
+            } catch (e3) {
+              debugPrint('Provider: Groq stream failed ($e3) — template feedback.');
+              final template = aiPipeline.feedbackService.buildTemplateFeedback(
+                fluencyScore: pronunciation.fluencyScore,
+                grammarScore: grammar.score,
+                pronunciationScore: pronunciation.overallScore,
+              );
+              const note =
+                  'On-device and cloud tutors were unavailable; here is a quick summary instead.\n\n';
+              rawStream = Stream<String>.fromIterable(['$note$template']);
+            }
+          }
+        } else {
+          debugPrint('Provider: Template feedback (local LLM unavailable; offline-only or no network).');
+          final template = aiPipeline.feedbackService.buildTemplateFeedback(
+            fluencyScore: pronunciation.fluencyScore,
+            grammarScore: grammar.score,
+            pronunciationScore: pronunciation.overallScore,
+          );
+          const note =
+              'On-device tutor could not start on this phone; here is a quick summary instead.\n\n';
+          rawStream = Stream<String>.fromIterable(['$note$template']);
+        }
+      }
       final feedbackBuffer = StringBuffer();
       await for (final token in rawStream) {
         feedbackBuffer.write(token);
@@ -290,61 +349,84 @@ class SessionProvider with ChangeNotifier {
       }
 
       try {
-        await _syncToFirebase();
+        await _syncSessionToFirebase(_currentSession!);
       } catch (e) {
         debugPrint('Firebase sync failed, will retry later: $e');
       }
+
+      _currentSession = _currentSession!.copyWith(synced: true);
 
       _isProcessing = false;
       notifyListeners();
       await authProvider.refreshUserProfile();
     } catch (e) {
+      _pipelineError = _humanizePipelineError(e);
       _isProcessing = false;
       pipelineStage = PipelineStage.idle;
       notifyListeners();
       throw Exception('Failed to process recording: $e');
     }
   }
-  
-  /// Sync current session to Firebase — only uploads summary metrics, never raw
-  /// transcript or audio. Raw data stays on the user's device only.
-  Future<void> _syncToFirebase() async {
-    if (_currentSession == null) return;
 
-    // Only send quantitative summary metrics — no transcript, feedback, or audio
+  static String _humanizePipelineError(Object e) {
+    final s = e.toString();
+    if (s.contains('LlmInference') || s.contains('tflite') || s.contains('RET_CHECK') || s.contains('LiteRT')) {
+      return 'On-device AI (LiteRT) could not start on this device. Try freeing ~1GB storage and rebooting, '
+          'or stay online with GEMINI_API_KEY / Groq in .env so feedback can use the cloud when local AI fails.\n\n$s';
+    }
+    return s;
+  }
+
+  /// Syncs the given [session] to Firebase and marks it synced in SQLite.
+  /// Does not read or assign [_currentSession] — safe to call while practice
+  /// analysis is running (e.g. from [saveCompletedSession]).
+  Future<void> _syncSessionToFirebase(Session session) async {
     final firebaseData = {
-      'userId':              _currentSession!.userId,
-      'type':                _currentSession!.type,
-      'promptId':            _currentSession!.promptId,
-      'status':              _currentSession!.statusString,
-      'audioDuration':       _currentSession!.audioDuration,
-      'createdAt':           _currentSession!.createdAt.millisecondsSinceEpoch,
-      'completedAt':         _currentSession!.completedAt?.millisecondsSinceEpoch,
-      // Summary scores only — detailed grammar/pronunciation artifacts stay local
-      'fluencyScore':        _currentSession!.scores?.fluency,
-      'grammarScore':        _currentSession!.scores?.grammar,
-      'pronunciationScore':  _currentSession!.scores?.pronunciation,
-      'overallScore':        _currentSession!.scores?.composite,
-      'estimatedBand':       _currentSession!.scores?.estimatedIELTSBand,
+      'userId':              session.userId,
+      'type':                session.type,
+      'promptId':            session.promptId,
+      'status':              session.statusString,
+      'audioDuration':       session.audioDuration,
+      'createdAt':           session.createdAt.millisecondsSinceEpoch,
+      'completedAt':         session.completedAt?.millisecondsSinceEpoch,
+      'fluencyScore':        session.scores?.fluency,
+      'grammarScore':        session.scores?.grammar,
+      'pronunciationScore':  session.scores?.pronunciation,
+      'overallScore':        session.scores?.composite,
+      'estimatedBand':       session.scores?.estimatedIELTSBand,
     };
 
     await _firebaseService.saveSessionData(
-      userId: _currentSession!.userId,
-      sessionId: _currentSession!.sessionId,
+      userId: session.userId,
+      sessionId: session.sessionId,
       sessionData: firebaseData,
     );
 
-    // Mark as synced locally
-    _currentSession = _currentSession!.copyWith(synced: true);
-    await _dbHelper.updateSession(
-        _currentSession!.sessionId, _currentSession!.toDbMap());
+    final synced = session.copyWith(synced: true);
+    await _dbHelper.updateSession(session.sessionId, synced.toDbMap());
   }
 
 
+  /// Preview playback state for recording review UI.
+  ValueNotifier<bool> get recordingPreviewPlaying => _audioService.previewPlaying;
+
+  Stream<Duration> get recordingPlaybackPosition => _audioService.onPositionChanged;
+
   Future<void> playCurrentRecording() async {
     if (_currentSession?.audioLocalPath != null) {
+      try {
+        await TtsService().stop();
+      } catch (_) {}
       await _audioService.playRecording(_currentSession!.audioLocalPath!);
     }
+  }
+
+  Future<void> pauseRecordingPlayback() async {
+    await _audioService.pausePlayback();
+  }
+
+  Future<void> resumeRecordingPlayback() async {
+    await _audioService.resumePlayback();
   }
 
   Future<void> stopPlayback() async {
@@ -356,6 +438,8 @@ class SessionProvider with ChangeNotifier {
     _isRecording = false;
     _isProcessing = false;
     _recordingDuration = 0.0;
+    _pipelineError = null;
+    _audioService.stopPlayback();
     // Free LLM RAM whenever the user navigates away from a session
     LocalLlmService().unloadModel();
     notifyListeners();
@@ -440,12 +524,11 @@ class SessionProvider with ChangeNotifier {
       debugPrint('Gamification update failed: $e');
     }
 
-    // Try sync
     try {
-      _currentSession = session;
-      await _syncToFirebase();
-      _currentSession = null;
-    } catch (_) {}
+      await _syncSessionToFirebase(session);
+    } catch (e) {
+      debugPrint('saveCompletedSession: Firebase sync failed: $e');
+    }
 
     // Refresh AuthProvider to update Home Screen stats
     await authProvider.refreshUserProfile();

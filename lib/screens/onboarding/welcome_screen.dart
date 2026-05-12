@@ -97,7 +97,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                   
                   // Subtitle
                   Text(
-                    'ADVANCED ENGLISH SPEAKING\nAI-POWERED FEEDBACK',
+                    'Advanced English speaking\nwith clear, practical feedback',
                     style: theme.textTheme.bodySmall?.copyWith(
                       letterSpacing: 1.2,
                       color: AppColors.textSecondary,
@@ -115,7 +115,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                           scale: _iconAnimations[0],
                           child: _buildFeatureCard(
                             Icons.graphic_eq,
-                            'PRACTICE',
+                            'Practice',
                             AppColors.textPrimary,
                           ),
                         ),
@@ -126,7 +126,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                           scale: _iconAnimations[1],
                           child: _buildFeatureCard(
                             Icons.auto_awesome,
-                            'ANALYZE',
+                            'Insights',
                             AppColors.textPrimary,
                           ),
                         ),
@@ -137,7 +137,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                           scale: _iconAnimations[2],
                           child: _buildFeatureCard(
                             Icons.insights,
-                            'TRACK',
+                            'Progress',
                             AppColors.accentRed, // Distinct Red Dot Element
                           ),
                         ),
@@ -157,7 +157,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 60),
                     ),
-                    child: const Text('GET STARTED'),
+                    child: const Text('Get started'),
                   ),
                   
                   const SizedBox(height: 16),
@@ -171,7 +171,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 60),
                     ),
-                    child: const Text('I HAVE AN ACCOUNT'),
+                    child: const Text('I already have an account'),
                   ),
                   
                   const SizedBox(height: 40),

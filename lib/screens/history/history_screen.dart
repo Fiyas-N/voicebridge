@@ -100,36 +100,36 @@ class _HistoryScreenState extends State<HistoryScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('CONFIGURATION',
+                const Text('Sort & filter',
                     style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, fontSize: 12, color: Colors.white)),
                 const SizedBox(height: 24),
-                const Text('FILTERING', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                const Text('Show', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _chip('ALL', _filterOption == _FilterOption.all, () => setSheet(() => _filterOption = _FilterOption.all)),
-                    _chip('PRACTICE', _filterOption == _FilterOption.practice, () => setSheet(() => _filterOption = _FilterOption.practice)),
-                    _chip('BASELINE', _filterOption == _FilterOption.baseline, () => setSheet(() => _filterOption = _FilterOption.baseline)),
+                    _chip('All', _filterOption == _FilterOption.all, () => setSheet(() => _filterOption = _FilterOption.all)),
+                    _chip('Practice', _filterOption == _FilterOption.practice, () => setSheet(() => _filterOption = _FilterOption.practice)),
+                    _chip('Baseline', _filterOption == _FilterOption.baseline, () => setSheet(() => _filterOption = _FilterOption.baseline)),
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Text('ORDERING', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                const Text('Sort by', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _chip('NEWEST', _sortOption == _SortOption.newest, () => setSheet(() => _sortOption = _SortOption.newest)),
-                    _chip('OLDEST', _sortOption == _SortOption.oldest, () => setSheet(() => _sortOption = _SortOption.oldest)),
-                    _chip('MAX SCORE', _sortOption == _SortOption.highestScore, () => setSheet(() => _sortOption = _SortOption.highestScore)),
-                    _chip('MIN SCORE', _sortOption == _SortOption.lowestScore, () => setSheet(() => _sortOption = _SortOption.lowestScore)),
+                    _chip('Newest', _sortOption == _SortOption.newest, () => setSheet(() => _sortOption = _SortOption.newest)),
+                    _chip('Oldest', _sortOption == _SortOption.oldest, () => setSheet(() => _sortOption = _SortOption.oldest)),
+                    _chip('Highest score', _sortOption == _SortOption.highestScore, () => setSheet(() => _sortOption = _SortOption.highestScore)),
+                    _chip('Lowest score', _sortOption == _SortOption.lowestScore, () => setSheet(() => _sortOption = _SortOption.lowestScore)),
                   ],
                 ),
                 const SizedBox(height: 32),
                 AnimatedButton(
-                  text: 'CONFIRM',
+                  text: 'Done',
                   onPressed: () {
                     setState(() {}); 
                     Navigator.pop(ctx);
@@ -176,7 +176,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          'SESSION ARCHIVE'.toUpperCase(),
+          'History',
           style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16),
         ),
         actions: [
@@ -208,7 +208,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(height: 16),
               Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 24),
-              AnimatedButton(text: 'RETRY', onPressed: _loadSessions, width: 120),
+              AnimatedButton(text: 'Try again', onPressed: _loadSessions, width: 120),
             ],
           ),
         ),
@@ -227,7 +227,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Icon(Icons.storage_outlined, size: 64, color: Colors.white.withValues(alpha: 0.1)),
               const SizedBox(height: 24),
               const Text(
-                'ARCHIVE EMPTY',
+                'No sessions yet',
                 style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2, color: AppColors.textSecondary),
               ),
             ],

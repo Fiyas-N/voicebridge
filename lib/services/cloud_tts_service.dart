@@ -21,7 +21,8 @@ class CloudTtsService {
 
   // Female voice IDs align with current Kokoro gender toggle
   static const String _femaleVoice = 'Aoede';
-  static const String _maleVoice   = 'Charon';
+  /// Deeper male preset than Charon for clearer gender contrast in Gemini TTS.
+  static const String _maleVoice = 'Fenrir';
 
   static const String _model = 'gemini-2.5-flash-preview-tts';
   static const String _baseUrl =

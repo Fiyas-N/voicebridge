@@ -24,8 +24,6 @@ class SessionDetailScreen extends StatelessWidget {
     final transcript = session['transcript'] as String? ?? '';
     final feedback = session['feedback'] as String? ?? '';
     final promptText = session['prompt_text'] as String? ?? '';
-    final type = session['type'] as String? ?? 'practice';
-
     List<String> grammarCorrections = [];
     List<String> improvementTips = [];
     List<String> advancedVocabulary = [];
@@ -56,7 +54,7 @@ class SessionDetailScreen extends StatelessWidget {
         backgroundColor: AppColors.background,
         elevation: 0,
         title: Text(
-          'ANALYSIS RECORD'.toUpperCase(),
+          'Session details',
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5),
         ),
         actions: [
@@ -87,26 +85,26 @@ class SessionDetailScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _bigScore('OVERALL', overall.toInt().toString()),
-                    _bigScore('BAND', band.toStringAsFixed(1)),
+                    _bigScore('Score', overall.toInt().toString()),
+                    _bigScore('IELTS band', band.toStringAsFixed(1)),
                     _bigScore('CEFR', session['cefr_level'] as String? ?? 'A1'),
                   ],
                 ),
                 const SizedBox(height: 32),
-                _scoreLine('FLUENCY', fluency),
+                _scoreLine('Fluency', fluency),
                 const SizedBox(height: 16),
-                _scoreLine('GRAMMAR', grammar),
+                _scoreLine('Grammar', grammar),
                 const SizedBox(height: 16),
-                _scoreLine('PHONETICS', pronunciation),
+                _scoreLine('Pronunciation', pronunciation),
               ],
             ),
           ),
           const SizedBox(height: 20),
           if (promptText.isNotEmpty)
-            _dataCard('CONTEXT', Icons.short_text, Text(promptText, style: const TextStyle(color: Colors.white, height: 1.4))),
+            _dataCard('Prompt', Icons.short_text, Text(promptText, style: const TextStyle(color: Colors.white, height: 1.4))),
           if (transcript.isNotEmpty)
             _dataCard(
-              'OUTPUT LOG',
+              'Transcript',
               Icons.description_outlined,
               wordResults.isNotEmpty
                   ? Column(
@@ -119,10 +117,10 @@ class SessionDetailScreen extends StatelessWidget {
                     )
                   : Text(transcript, style: const TextStyle(color: Colors.white, height: 1.4)),
             ),
-          if (feedback.isNotEmpty) _dataCard('AI OBSERVATION', Icons.insights_rounded, Text(feedback, style: const TextStyle(color: AppColors.textSecondary, height: 1.5, fontSize: 13))),
+          if (feedback.isNotEmpty) _dataCard('Feedback', Icons.insights_rounded, Text(feedback, style: const TextStyle(color: AppColors.textSecondary, height: 1.5, fontSize: 13))),
           if (grammarCorrections.isNotEmpty)
             _dataCard(
-              'REFACTOR LOG',
+              'Grammar notes',
               Icons.edit_note_rounded,
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,7 +129,7 @@ class SessionDetailScreen extends StatelessWidget {
             ),
           if (improvementTips.isNotEmpty)
             _dataCard(
-              'OPTIMIZATIONS',
+              'Fluency tips',
               Icons.bolt_rounded,
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,7 +138,7 @@ class SessionDetailScreen extends StatelessWidget {
             ),
           if (advancedVocabulary.isNotEmpty)
             _dataCard(
-              'LEXICAL HINTS',
+              'Vocabulary ideas',
               Icons.menu_book_rounded,
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

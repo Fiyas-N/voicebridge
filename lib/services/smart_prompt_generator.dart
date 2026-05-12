@@ -53,9 +53,11 @@ Rules:
         raw = await _cloud.generateText(sysPrompt);
       } else {
         debugPrint('SmartPrompt: Loading local LLM for inference…');
-        await _llm.loadModel(); 
-        raw = await _llm.smartGenerate(sysPrompt);
-        await _llm.unloadModel();
+        try {
+          raw = await _llm.generateResponse(sysPrompt);
+        } finally {
+          await _llm.unloadModel();
+        }
       }
 
       // Parse logic

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/utils/haptic_feedback.dart' as haptic;
+import '../../core/theme/design_tokens.dart';
+import '../../core/utils/ui_feedback.dart';
 
 class AnimatedButton extends StatefulWidget {
   final String text;
   final VoidCallback onPressed;
   final IconData? icon;
   final bool isLoading;
+  /// Filled white pill + dark label (Nothing primary).
   final bool isPrimary;
+  /// When true, filled electric purple (legacy “accent” CTAs).
+  final bool useAccentFill;
   final Color? backgroundColor;
   final Color? textColor;
   final double? width;
@@ -20,6 +24,7 @@ class AnimatedButton extends StatefulWidget {
     this.icon,
     this.isLoading = false,
     this.isPrimary = true,
+    this.useAccentFill = false,
     this.backgroundColor,
     this.textColor,
     this.width,
@@ -34,6 +39,7 @@ class _AnimatedButtonState extends State<AnimatedButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  bool _pressed = false;
 
   @override
   void initState() {
@@ -54,27 +60,49 @@ class _AnimatedButtonState extends State<AnimatedButton>
   }
 
   void _handleTapDown(TapDownDetails details) {
+    setState(() => _pressed = true);
     _controller.forward();
-    haptic.HapticFeedback.buttonTap();
+    UiTapFeedback.play();
   }
 
   void _handleTapUp(TapUpDetails details) {
+    setState(() => _pressed = false);
     _controller.reverse();
   }
 
   void _handleTapCancel() {
+    setState(() => _pressed = false);
     _controller.reverse();
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color effectiveBg = widget.isPrimary 
-        ? AppColors.primary 
-        : (widget.backgroundColor ?? Colors.transparent);
-        
-    final Color effectiveTextColor = widget.isPrimary 
-        ? Colors.black 
-        : (widget.textColor ?? AppColors.textPrimary);
+    final bool primary = widget.isPrimary;
+    final Color effectiveBg = widget.backgroundColor != null
+        ? widget.backgroundColor!
+        : primary
+            ? (widget.useAccentFill
+                ? VbColor.accentElectric
+                : VbColor.inverseSurface)
+            : Colors.transparent;
+
+    final Color effectiveTextColor = widget.textColor != null
+        ? widget.textColor!
+        : primary
+            ? (widget.useAccentFill
+                ? Colors.white
+                : VbColor.inverseOnSurface)
+            : VbColor.onSurface;
+
+    final List<BoxShadow>? glow = (!primary && _pressed)
+        ? [
+            BoxShadow(
+              color: VbColor.accentElectric.withValues(alpha: 0.35),
+              blurRadius: 15,
+              spreadRadius: 0,
+            ),
+          ]
+        : null;
 
     return GestureDetector(
       onTapDown: widget.isLoading ? null : _handleTapDown,
@@ -86,13 +114,14 @@ class _AnimatedButtonState extends State<AnimatedButton>
         child: AnimatedContainer(
           duration: AppAnimations.fast,
           width: widget.width,
-          height: widget.height ?? 58,
+          height: widget.height ?? 52,
           decoration: BoxDecoration(
             color: effectiveBg,
-            borderRadius: BorderRadius.circular(32),
-            border: !widget.isPrimary 
-                ? Border.all(color: AppColors.borderMedium, width: 1.5)
+            borderRadius: BorderRadius.circular(VbRadii.full),
+            border: !primary
+                ? Border.all(color: VbColor.outline, width: 1)
                 : null,
+            boxShadow: glow,
           ),
           child: Material(
             color: Colors.transparent,
@@ -102,8 +131,9 @@ class _AnimatedButtonState extends State<AnimatedButton>
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(effectiveTextColor),
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(effectiveTextColor),
                       ),
                     )
                   : Row(
@@ -119,12 +149,14 @@ class _AnimatedButtonState extends State<AnimatedButton>
                           const SizedBox(width: 10),
                         ],
                         Text(
-                          widget.text.toUpperCase(), // Nothing aesthetic uses uppercases for action
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                color: effectiveTextColor,
-                                fontSize: 14,
-                                letterSpacing: 1.5,
-                              ),
+                          widget.text.toUpperCase(),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: effectiveTextColor,
+                                    fontSize: 12,
+                                    letterSpacing: 1.2,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                         ),
                       ],
                     ),

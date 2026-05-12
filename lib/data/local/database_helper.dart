@@ -8,6 +8,39 @@ class DatabaseHelper {
 
   DatabaseHelper._init();
 
+  /// True if [name] exists in sqlite_master.
+  Future<bool> _tableExists(Database db, String name) async {
+    final rows = await db.rawQuery(
+      'SELECT 1 FROM sqlite_master WHERE type = ? AND name = ? LIMIT 1',
+      ['table', name],
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// Post-open guard: recover from partial installs / restores (missing auxiliary tables).
+  Future<void> _onOpenRepairIfNeeded(Database db) async {
+    try {
+      if (!await _tableExists(db, 'lesson_progress')) {
+        debugPrint('DatabaseHelper: onOpen — provisioning lesson_progress');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS lesson_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            lesson_id TEXT NOT NULL,
+            completed_at INTEGER,
+            score REAL,
+            UNIQUE(user_id, lesson_id)
+          )
+        ''');
+        await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_lesson_progress_user ON lesson_progress(user_id)',
+        );
+      }
+    } catch (e, st) {
+      debugPrint('DatabaseHelper: onOpen repair: $e\n$st');
+    }
+  }
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('voicebridge.db');
@@ -23,6 +56,7 @@ class DatabaseHelper {
       version: 8,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
+      onOpen: _onOpenRepairIfNeeded,
     );
   }
 

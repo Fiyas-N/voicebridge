@@ -84,20 +84,30 @@ INSTRUCTIONS AS TUTOR:
         if (response.length > 20) return response;
       }
 
-      // ── 2. Fallback to On-Device LLM
+      // ── 2. Fallback to On-Device LLM (always local — do not use smartGenerate
+      //     here or a "Wi‑Fi but no internet" device would hit cloud again).
       debugPrint('Feedback: Routing to Local Qwen/Gemma (offline)');
       try {
-        await _localLlm.loadModel(); // Prime memory
-        final response = await _localLlm.smartGenerate(prompt);
+        final response = await _localLlm.generateResponse(prompt);
         if (response.isNotEmpty && response.length > 20) {
           return response.trim();
         }
       } finally {
-        await _localLlm.unloadModel(); // Reclaim system RAM
+        await _localLlm.unloadModel();
       }
     } catch (e) {
       debugPrint('Feedback: Model generation error — $e');
     }
+    return _generateTemplateFeedback(fluencyScore, grammarScore, pronunciationScore);
+  }
+
+  /// Same text as the template fallback inside [generateFeedback] — for streaming
+  /// pipelines when the on-device LLM cannot start and cloud is unavailable.
+  String buildTemplateFeedback({
+    required double fluencyScore,
+    required double grammarScore,
+    required double pronunciationScore,
+  }) {
     return _generateTemplateFeedback(fluencyScore, grammarScore, pronunciationScore);
   }
 

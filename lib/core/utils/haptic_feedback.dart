@@ -1,49 +1,38 @@
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' as services;
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Haptic Feedback Utility
-/// Provides consistent haptic feedback across the app
-class HapticFeedback {
-  /// Light impact for subtle interactions
+/// App haptics gated by [haptic_output_enabled] (default on).
+class AppHaptics {
+  AppHaptics._();
+
+  static Future<bool> _enabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('haptic_output_enabled') ?? true;
+  }
+
   static Future<void> lightImpact() async {
-    await SystemChannels.platform.invokeMethod<void>(
-      'HapticFeedback.vibrate',
-      'HapticFeedbackType.lightImpact',
-    );
+    if (!await _enabled()) return;
+    await services.HapticFeedback.lightImpact();
   }
-  
-  /// Medium impact for standard interactions
+
   static Future<void> mediumImpact() async {
-    await SystemChannels.platform.invokeMethod<void>(
-      'HapticFeedback.vibrate',
-      'HapticFeedbackType.mediumImpact',
-    );
+    if (!await _enabled()) return;
+    await services.HapticFeedback.mediumImpact();
   }
-  
-  /// Heavy impact for important interactions
+
   static Future<void> heavyImpact() async {
-    await SystemChannels.platform.invokeMethod<void>(
-      'HapticFeedback.vibrate',
-      'HapticFeedbackType.heavyImpact',
-    );
+    if (!await _enabled()) return;
+    await services.HapticFeedback.heavyImpact();
   }
-  
-  /// Selection feedback for picker/selector interactions
+
   static Future<void> selectionClick() async {
-    await HapticFeedback.selectionClick();
+    if (!await _enabled()) return;
+    await services.HapticFeedback.selectionClick();
   }
-  
-  /// Success feedback (medium impact)
-  static Future<void> success() async {
-    await mediumImpact();
-  }
-  
-  /// Error feedback (heavy impact)
-  static Future<void> error() async {
-    await heavyImpact();
-  }
-  
-  /// Button tap feedback (light impact)
-  static Future<void> buttonTap() async {
-    await lightImpact();
-  }
+
+  static Future<void> success() => mediumImpact();
+
+  static Future<void> error() => heavyImpact();
+
+  static Future<void> buttonTap() => lightImpact();
 }

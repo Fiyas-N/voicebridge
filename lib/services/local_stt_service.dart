@@ -49,6 +49,12 @@ class TranscriptionResult {
   });
 }
 
+/// On-device STT via [whisper_flutter_new].
+///
+/// The plugin expects **`ggml-tiny.bin`** under [getApplicationSupportDirectory]
+/// (see `WhisperModel.tiny.getPath`). It auto-downloads from Hugging Face on first
+/// use if the file is missing — the old app logic copied `ggml-tiny.en.bin` to the
+/// wrong path/name, so Whisper never saw a model and always returned empty text.
 class LocalSttService {
   static final LocalSttService _instance = LocalSttService._internal();
   factory LocalSttService() => _instance;
@@ -58,38 +64,47 @@ class LocalSttService {
   bool _isInitialized = false;
   Future<dynamic> _lock = Future.value();
 
+  /// Optional: ship `assets/models/whisper/ggml-tiny.bin` for offline-first installs.
+  Future<void> _copyBundledTinyIfPresent(String modelDir) async {
+    final dest = File(p.join(modelDir, 'ggml-tiny.bin'));
+    if (await dest.exists() && await dest.length() > 1024 * 1024) return;
+
+    try {
+      final data = await rootBundle.load('assets/models/whisper/ggml-tiny.bin');
+      debugPrint('Whisper: copying bundled ggml-tiny.bin → ${dest.path}');
+      await dest.writeAsBytes(
+        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        flush: true,
+      );
+    } catch (_) {
+      // No bundled model — plugin will download on first transcribe when online.
+    }
+  }
+
   Future<void> init() async {
     if (_isInitialized) return;
 
     try {
-      final directory = await getApplicationDocumentsDirectory();
-      final modelFile = File(p.join(directory.path, 'whisper_tiny_en.bin'));
+      final dir = await getApplicationSupportDirectory();
+      await _copyBundledTinyIfPresent(dir.path);
 
-      if (!await modelFile.exists()) {
-        final data = await rootBundle.load('assets/models/whisper/ggml-tiny.en.bin');
-        final buffer = data.buffer;
-        final fileSink = modelFile.openWrite();
-        try {
-          const int chunkSize = 1024 * 1024; // 1MB chunks
-          int offset = data.offsetInBytes;
-          int totalLength = data.lengthInBytes;
-          while (totalLength > 0) {
-            int toWrite = totalLength > chunkSize ? chunkSize : totalLength;
-            fileSink.add(buffer.asUint8List(offset, toWrite));
-            offset += toWrite;
-            totalLength -= toWrite;
-          }
-        } finally {
-          await fileSink.close();
-        }
+      _whisper = Whisper(
+        model: WhisperModel.tiny,
+        modelDir: dir.path,
+      );
+
+      // Touch native + ensure model exists (downloads if needed, same as first transcribe).
+      try {
+        await _whisper!.getVersion();
+      } catch (e) {
+        debugPrint('Whisper: getVersion failed (model may download on first transcribe): $e');
       }
 
-      // WhisperModel is an enum in 1.0.1
-      _whisper = const Whisper(model: WhisperModel.tiny);
       _isInitialized = true;
-      debugPrint('Whisper STT initialized successfully');
-    } catch (e) {
-      debugPrint('Error initializing Whisper STT: $e');
+      debugPrint('Whisper STT ready (model dir: ${dir.path})');
+    } catch (e, st) {
+      debugPrint('Error initializing Whisper STT: $e\n$st');
+      _whisper = null;
     }
   }
 
@@ -98,16 +113,27 @@ class LocalSttService {
     final res = await (_lock = _lock.then((_) async {
       await init();
       if (_whisper == null) {
+        debugPrint('Whisper: not initialized — cannot transcribe $audioPath');
+        return TranscriptionResult(transcript: '', confidence: 0.0);
+      }
+
+      final file = File(audioPath);
+      if (!await file.exists()) {
+        debugPrint('Whisper: audio file missing: $audioPath');
+        return TranscriptionResult(transcript: '', confidence: 0.0);
+      }
+      final bytes = await file.length();
+      if (bytes < 256) {
+        debugPrint('Whisper: audio file too small ($bytes bytes): $audioPath');
         return TranscriptionResult(transcript: '', confidence: 0.0);
       }
 
       try {
-        // Direct transcription for 1.0.1
         final response = await _whisper!.transcribe(
           transcribeRequest: TranscribeRequest(audio: audioPath),
         );
         final transcript = response.text.trim();
-        
+
         final words = <WordInfo>[];
         if (transcript.isNotEmpty) {
           final rawWords = transcript.split(RegExp(r'\s+'));
@@ -123,11 +149,11 @@ class LocalSttService {
 
         return TranscriptionResult(
           transcript: transcript,
-          confidence: 0.9, 
+          confidence: 0.9,
           words: words,
         );
-      } catch (e) {
-        debugPrint('Error transcribing audio: $e');
+      } catch (e, st) {
+        debugPrint('Error transcribing audio: $e\n$st');
         return TranscriptionResult(transcript: '', confidence: 0.0);
       }
     }));

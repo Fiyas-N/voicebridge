@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/prompt.dart';
+import '../../data/local/database_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/tts_service.dart';
+import '../../widgets/common/ai_voice_gender_toggle.dart';
+import '../../widgets/common/glass_card.dart';
 import '../../services/gamification_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import 'package:shimmer/shimmer.dart';
 import '../lessons/lessons_screen.dart';
 import '../practice/conversation_screen.dart';
 import '../practice/recording_screen.dart';
+import '../progress/progress_screen.dart';
 import '../settings/settings_screen.dart';
+import '../history/history_screen.dart';
+import '../history/session_detail_screen.dart';
 import '../../services/smart_prompt_generator.dart';
 import '../../data/models/user_profile.dart';
 
@@ -27,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _tipIndex = 0;
   Map<String, dynamic> _gamificationStats = {};
   bool _isGenerating = false;
+  List<Map<String, dynamic>> _recentSessions = [];
 
   static const List<Map<String, String>> _tips = [
     {'icon': '🎯', 'tip': 'Speak clearly and at a natural pace — don\'t rush answers.'},
@@ -62,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadGamificationStats();
+      _loadRecentSessions();
       Provider.of<AuthProvider>(context, listen: false).addListener(_loadGamificationStats);
     });
   }
@@ -83,6 +93,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     try {
       final stats = await GamificationService().getStats(userId);
       if (mounted) setState(() => _gamificationStats = stats);
+    } catch (_) {}
+  }
+
+  Future<void> _loadRecentSessions() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final userId = auth.currentUser?.userId;
+    if (userId == null) return;
+    try {
+      final rows = await DatabaseHelper.instance.getUserSessions(userId, limit: 4);
+      if (mounted) setState(() => _recentSessions = rows);
     } catch (_) {}
   }
 
@@ -131,126 +151,102 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Scaffold(
           backgroundColor: AppColors.background,
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _showConversationTopics(context),
+            child: const Icon(Icons.mic_none_rounded, color: VbColor.inverseOnSurface),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           body: SafeArea(
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  sliver: SliverToBoxAdapter(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Good ${_getGreeting()}'.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user.displayName.isNotEmpty ? user.displayName : 'Learner',
-                              style: Theme.of(context).textTheme.displayMedium,
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.settings_outlined),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                  padding: const EdgeInsets.fromLTRB(
+                    VbSpacing.marginMobile,
+                    8,
+                    VbSpacing.marginMobile,
+                    4,
                   ),
+                  sliver: SliverToBoxAdapter(child: _buildBrandTopBar(context, user)),
                 ),
-
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: VbSpacing.marginMobile),
+                  sliver: SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _XpDailyGoalCard(stats: _gamificationStats),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: VbSpacing.md),
                         ScaleTransition(
                           scale: _bannerAnimation,
-                          child: Row(
-                            children: [
-                              Expanded(child: _buildStatCard('🔥', '${user.currentStreak}', 'STREAK')),
-                              const SizedBox(width: 12),
-                              Expanded(child: _buildStatCard('📊', '${user.totalSessions}', 'SESSIONS')),
-                              const SizedBox(width: 12),
-                              Expanded(child: _buildStatCard('🎯', user.baselineCompleted ? 'DONE' : 'TBD', 'BASE')),
-                            ],
-                          ),
+                          child: _buildStatsStrip(user),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: VbSpacing.md),
                         if (!user.baselineCompleted) ...[
                           _buildBaselineBanner(context, user.userId),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: VbSpacing.md),
                         ],
-                        _buildTodayCard(context, dailyPrompt, user.userId),
-                        const SizedBox(height: 32),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('PRACTICE BY PART'.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 13, color: AppColors.textSecondary)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
+                        _buildActiveModuleCard(context, user, dailyPrompt),
+                        const SizedBox(height: VbSpacing.md),
+                        _buildPathwayGrid(context, user.userId),
+                        const SizedBox(height: VbSpacing.md),
+                        _buildHomeHistory(context),
+                        const SizedBox(height: VbSpacing.md),
                         Row(
                           children: [
-                            Expanded(child: _buildPartCard(context, 'P1', Icons.forum_outlined, () => _goToRecording(context, IELTSPrompts.getRandomPromptFromPart(1), user.userId))),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildPartCard(context, 'P2', Icons.record_voice_over_outlined, () => _goToRecording(context, IELTSPrompts.getRandomPromptFromPart(2), user.userId))),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildPartCard(context, 'P3', Icons.groups_outlined, () => _goToRecording(context, IELTSPrompts.getRandomPromptFromPart(3), user.userId))),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('AI TOOLS'.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 13, color: AppColors.textSecondary)),
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.borderLight)),
-                              child: Row(
-                                children: [
-                                  _voiceOption(context, 'F', !TtsService().isMale, () => setState(() => TtsService().setVoice(false))),
-                                  _voiceOption(context, 'M', TtsService().isMale, () => setState(() => TtsService().setVoice(true))),
-                                ],
+                            Expanded(
+                              child: Text(
+                                'Speaking voice',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 10,
+                                  letterSpacing: 1.2,
+                                  color: VbColor.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
+                            ),
+                            AiVoiceGenderToggle(
+                              compact: true,
+                              isMale: TtsService().isMale,
+                              onChanged: (male) async {
+                                await TtsService().setVoice(male);
+                                if (mounted) setState(() {});
+                              },
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: VbSpacing.sm),
                         _buildActionButton(
                           context,
                           Icons.auto_awesome,
-                          'GENERATE AI DRILL',
-                          'Targeted training generated just for you',
+                          'Personalised drill',
+                          'Targets your weak areas',
                           () => _onGenPersonalised(user),
                           isAccent: true,
                         ),
-                        const SizedBox(height: 12),
-                        _buildActionButton(context, Icons.psychology_outlined, 'MOCK INTERVIEW', 'Specialised practice simulation', () => _showMockInterviewSetup(context)),
-                        const SizedBox(height: 12),
-                        _buildActionButton(context, Icons.auto_awesome_outlined, 'LIVE TALK AI', 'Natural fluid conversations', () => _showConversationTopics(context)),
-                        const SizedBox(height: 12),
-                        _buildActionButton(context, Icons.menu_book_rounded, 'LESSONS MATRIX', 'Structured syllabus path', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LessonsScreen()))),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: VbSpacing.sm),
+                        _buildActionButton(
+                          context,
+                          Icons.psychology_outlined,
+                          'Mock interview',
+                          'Practice for a specific role',
+                          () => _showMockInterviewSetup(context),
+                        ),
+                        const SizedBox(height: VbSpacing.sm),
+                        _buildActionButton(
+                          context,
+                          Icons.horizontal_split,
+                          'Quick Part 2',
+                          'Jump into a Part 2 cue card',
+                          () => _goToRecording(
+                            context,
+                            IELTSPrompts.getRandomPromptFromPart(2),
+                            user.userId,
+                          ),
+                        ),
+                        const SizedBox(height: VbSpacing.md),
                         _buildTipCard(context),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 88),
                       ],
                     ),
                   ),
@@ -262,16 +258,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (_isGenerating)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withValues(alpha: 0.9),
+              color: Colors.black.withValues(alpha: 0.92),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    SizedBox(height: 24),
+                  children: [
+                    const CircularProgressIndicator(
+                      color: VbColor.inverseSurface,
+                      strokeWidth: 2,
+                    ),
+                    const SizedBox(height: 24),
                     Text(
-                      'SYNTHESIZING_BESPOKE_SEQUENCE...',
-                      style: TextStyle(color: Colors.white, fontFamily: 'monospace', letterSpacing: 2, fontSize: 10, fontWeight: FontWeight.bold),
+                      'Creating your drill…',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: VbColor.inverseSurface,
+                        letterSpacing: 2,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -279,6 +283,394 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildBrandTopBar(BuildContext context, UserProfile user) {
+    return Row(
+      children: [
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          icon: const Icon(Icons.menu_rounded, size: 22),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsScreen(),
+              ),
+            );
+          },
+        ),
+        Expanded(
+          child: Text(
+            'VOICEBRIDGE',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.spaceMono(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2.5,
+              color: VbColor.onBackground,
+            ),
+          ),
+        ),
+        IconButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsScreen(),
+              ),
+            );
+          },
+          icon: CircleAvatar(
+            radius: 18,
+            backgroundColor: VbColor.surfaceContainerHigh,
+            child: Text(
+              (user.displayName.isNotEmpty ? user.displayName[0] : 'V')
+                  .toUpperCase(),
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                color: VbColor.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsStrip(UserProfile user) {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Streak',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 10,
+                    letterSpacing: 1,
+                    color: VbColor.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${user.currentStreak}',
+                  style: GoogleFonts.spaceMono(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: VbColor.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(width: 1, height: 40, color: VbColor.outlineVariant),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'Sessions',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 10,
+                    letterSpacing: 1,
+                    color: VbColor.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${user.totalSessions}',
+                  style: GoogleFonts.spaceMono(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: VbColor.accentElectric,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveModuleCard(
+    BuildContext context,
+    UserProfile user,
+    Prompt dailyPrompt,
+  ) {
+    final dp =
+        (_gamificationStats['dailyProgress'] as num?)?.toDouble() ?? 0.0;
+    final title = dailyPrompt.text.length > 72
+        ? '${dailyPrompt.text.substring(0, 72)}…'
+        : dailyPrompt.text;
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Today\'s practice',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  color: VbColor.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '${(dp * 100).round()}%',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  color: VbColor.accentElectric,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '[ ${dailyPrompt.difficulty.toUpperCase()} ]',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 9,
+              color: VbColor.outline,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: GoogleFonts.spaceMono(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.25,
+              color: VbColor.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: dp.clamp(0.0, 1.0),
+              minHeight: 3,
+              backgroundColor: VbColor.surfaceContainerHighest,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                VbColor.accentElectric,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              label: const Text('Continue'),
+              onPressed: () => _goToRecording(context, dailyPrompt, user.userId),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPathwayGrid(BuildContext context, String userId) {
+    Widget cell({
+      required IconData icon,
+      required String title,
+      required String subtitle,
+      required VoidCallback onTap,
+      Color iconColor = VbColor.onSurface,
+    }) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(VbRadii.lg),
+          child: GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 22, color: iconColor),
+                const Spacer(),
+                Text(
+                  title,
+                  style: GoogleFonts.spaceMono(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: VbColor.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: VbColor.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.15,
+      children: [
+        cell(
+          icon: Icons.graphic_eq,
+          title: 'Speak with AI',
+          subtitle: 'Live conversation',
+          iconColor: VbColor.accentElectric,
+          onTap: () => _showConversationTopics(context),
+        ),
+        cell(
+          icon: Icons.mic_none_outlined,
+          title: 'Part drill',
+          subtitle: 'IELTS practice',
+          onTap: () => _goToRecording(
+            context,
+            IELTSPrompts.getRandomPromptFromPart(1),
+            userId,
+          ),
+        ),
+        cell(
+          icon: Icons.grid_view_outlined,
+          title: 'Lessons',
+          subtitle: 'Structured path',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const LessonsScreen()),
+            );
+          },
+        ),
+        cell(
+          icon: Icons.analytics_outlined,
+          title: 'Progress',
+          subtitle: 'Charts and stats',
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ProgressScreen()),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHomeHistory(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent sessions',
+              style: GoogleFonts.jetBrainsMono(
+                fontSize: 10,
+                letterSpacing: 1.4,
+                color: VbColor.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const HistoryScreen(),
+                  ),
+                );
+              },
+              child: Text(
+                'See all',
+                style: GoogleFonts.jetBrainsMono(
+                  fontSize: 10,
+                  color: VbColor.accentElectric,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_recentSessions.isEmpty)
+          Text(
+            'No sessions yet.',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: VbColor.onSurfaceVariant,
+            ),
+          )
+        else
+          ..._recentSessions.map((s) => _historyRow(context, s)),
+      ],
+    );
+  }
+
+  Widget _historyRow(BuildContext context, Map<String, dynamic> s) {
+    final raw = (s['prompt_text'] as String? ?? 'Session').trim();
+    final short =
+        raw.length > 48 ? '${raw.substring(0, 48)}…' : raw;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => SessionDetailScreen(session: s),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(VbRadii.lg),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(VbRadii.lg),
+              border: Border.all(color: VbColor.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.graphic_eq,
+                  size: 18,
+                  color: VbColor.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    short,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: VbColor.onSurface,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: VbColor.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -315,67 +707,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Voice Selector mini widget
-  Widget _voiceOption(BuildContext context, String text, bool isSelected, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.black : AppColors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Basic Helper - Stat Cards stripped of Neumorphism
-  Widget _buildStatCard(String emoji, String value, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 22)),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'monospace',
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textTertiary,
-              letterSpacing: 1.0,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
   // Baseline Call to Action
   Widget _buildBaselineBanner(BuildContext context, String userId) {
     return GestureDetector(
@@ -395,7 +726,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           gradient: AppColors.purpleNeonGradient,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(VbRadii.lg),
           boxShadow: [
             BoxShadow(color: AppColors.accentPurple.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))
           ],
@@ -407,7 +738,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'INITIALIZE SYSTEM',
+                    'Get started',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -438,184 +769,90 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // Daily Practice Item
-  Widget _buildTodayCard(BuildContext ctx, Prompt prompt, String userId) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "DAILY PROMPT".toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.accentCyan,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2.0,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.textTertiary),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  prompt.difficulty.toUpperCase(),
-                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            prompt.text,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'PART ${prompt.ieltsPartNumber} · ${prompt.category.toUpperCase()}',
-            style: const TextStyle(fontSize: 11, color: AppColors.textTertiary, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.mic_none, size: 20),
-              label: const Text('EXECUTE PRACTICE'),
-              onPressed: () => _goToRecording(ctx, prompt, userId),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Part Practice Cards (P1, P2, P3)
-  Widget _buildPartCard(BuildContext ctx, String label, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.borderLight),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: AppColors.textPrimary, size: 28),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                letterSpacing: 1.0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // Action Row Items
   Widget _buildActionButton(BuildContext ctx, IconData icon, String title, String subtitle, VoidCallback onTap, {bool isAccent = false}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          gradient: isAccent ? AppColors.cyberGradient : null,
-          color: isAccent ? null : AppColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: isAccent ? Colors.transparent : AppColors.borderLight),
-          boxShadow: isAccent ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 16, offset: const Offset(0, 6))] : null,
+          color: isAccent
+              ? VbColor.accentElectric.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(VbRadii.lg),
+          border: Border.all(
+            color: isAccent ? VbColor.accentElectric : VbColor.outlineVariant,
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isAccent ? Colors.black : AppColors.textPrimary, size: 24),
-            const SizedBox(width: 18),
+            Icon(
+              icon,
+              color: isAccent ? VbColor.accentElectric : VbColor.onSurface,
+              size: 22,
+            ),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8, fontSize: 14, color: isAccent ? Colors.black : Colors.white),
+                    style: GoogleFonts.jetBrainsMono(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.6,
+                      fontSize: 11,
+                      color: VbColor.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(fontSize: 11, color: isAccent ? Colors.black54 : AppColors.textTertiary),
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: VbColor.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, size: 14, color: isAccent ? Colors.black54 : AppColors.textTertiary),
+            Icon(Icons.chevron_right, size: 16, color: VbColor.onSurfaceVariant),
           ],
         ),
       ),
     );
   }
 
-  // Tip widget transformed to Glass/Dark Minimal Gradient
+  // Tip widget
   Widget _buildTipCard(BuildContext ctx) {
     final tip = _tips[_tipIndex];
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.borderLight),
-      ),
+    return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'SYS_TIP //',
-            style: TextStyle(
-              color: AppColors.textTertiary,
+          Text(
+            'Tip',
+            style: GoogleFonts.jetBrainsMono(
+              color: VbColor.onSurfaceVariant,
               fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2.0,
-              fontFamily: 'monospace',
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             tip['tip']!,
-            style: const TextStyle(
+            style: GoogleFonts.inter(
               fontSize: 15,
               height: 1.5,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
+              color: VbColor.onSurface,
             ),
           ),
         ],
       ),
     );
-  }
-
-  // Logic Utilities
-  String _getGreeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'morning';
-    if (h < 17) return 'afternoon';
-    return 'evening';
   }
 
   void _goToRecording(BuildContext ctx, Prompt prompt, String userId) {
@@ -649,7 +886,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'SELECT CONVERSATION CORE',
+              'Choose a topic',
               style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -704,7 +941,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'MOCK INTERVIEW PARAMETER',
+              'Interview focus',
               style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
@@ -729,7 +966,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Navigator.push(ctx, MaterialPageRoute(builder: (_) => ConversationScreen(topic: 'Interview: $text', topicEmoji: '🎙️')));
                   }
                 },
-                child: const Text('INITIALISE'),
+                child: const Text('Start interview'),
               ),
             ),
           ],
@@ -785,7 +1022,7 @@ class _XpDailyGoalCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'SYS_LEVEL',
+                      'Level',
                       style: TextStyle(fontSize: 9, fontFamily: 'monospace', color: AppColors.textTertiary, fontWeight: FontWeight.bold),
                     ),
                     Text(

@@ -1,6 +1,8 @@
 import 'dart:io';
-import 'package:record/record.dart';
+
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
+import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -9,12 +11,36 @@ import 'package:permission_handler/permission_handler.dart';
 class AudioService {
   final _recorder = AudioRecorder();
   final _player = AudioPlayer();
+
+  /// Reflects preview playback state for UI (e.g. recording review waveform).
+  final ValueNotifier<bool> previewPlaying = ValueNotifier(false);
   
   bool _isRecording = false;
   String? _currentRecordingPath;
 
   bool get isRecording => _isRecording;
   String? get currentRecordingPath => _currentRecordingPath;
+
+  AudioService() {
+    _player.onPlayerStateChanged.listen((state) {
+      previewPlaying.value = state == PlayerState.playing;
+    });
+  }
+
+  /// After [AudioRecorder] stops, Android often stays in voice/communication
+  /// routing; preview must request media playback + speaker so WAV is audible.
+  static const AudioContext _previewPlaybackContext = AudioContext(
+    android: AudioContextAndroid(
+      isSpeakerphoneOn: true,
+      audioMode: AndroidAudioMode.normal,
+      contentType: AndroidContentType.speech,
+      usageType: AndroidUsageType.media,
+      audioFocus: AndroidAudioFocus.gain,
+    ),
+    iOS: AudioContextIOS(
+      category: AVAudioSessionCategory.playback,
+    ),
+  );
   
   /// Check and request microphone permission
   Future<bool> checkPermission() async {
@@ -84,8 +110,10 @@ class AudioService {
       
       final path = await _recorder.stop();
       _isRecording = false;
-      
-      return path;
+      if (path != null && path.isNotEmpty) {
+        _currentRecordingPath = path;
+      }
+      return path ?? _currentRecordingPath;
     } catch (e) {
       _isRecording = false;
       throw Exception('Failed to stop recording: $e');
@@ -106,10 +134,26 @@ class AudioService {
     }
   }
 
-  /// Play recorded audio
+  /// Play recorded audio (WAV). Stops any current preview first.
   Future<void> playRecording(String path) async {
     try {
-      await _player.play(DeviceFileSource(path));
+      await stopPlayback();
+      final file = File(path);
+      if (!await file.exists()) {
+        throw Exception('Recording file not found');
+      }
+      final size = await file.length();
+      if (size < 64) {
+        throw Exception('Recording file is empty or too small');
+      }
+      final absolute = file.absolute.path;
+
+      await _player.setVolume(1.0);
+      await _player.play(
+        DeviceFileSource(absolute),
+        ctx: _previewPlaybackContext,
+        mode: PlayerMode.mediaPlayer,
+      );
     } catch (e) {
       throw Exception('Failed to play recording: $e');
     }
@@ -118,6 +162,7 @@ class AudioService {
   /// Stop playback
   Future<void> stopPlayback() async {
     await _player.stop();
+    previewPlaying.value = false;
   }
 
   /// Pause playback
@@ -141,10 +186,14 @@ class AudioService {
     try {
       final file = File(path);
       if (!await file.exists()) return 0.0;
-      
-      await _player.setSourceDeviceFile(path);
+
+      await stopPlayback();
+      final absolute = file.absolute.path;
+      await _player.setSourceDeviceFile(absolute);
       final duration = await _player.getDuration();
-      
+      await _player.stop();
+      previewPlaying.value = false;
+
       return duration?.inSeconds.toDouble() ?? 0.0;
     } catch (e) {
       return 0.0;

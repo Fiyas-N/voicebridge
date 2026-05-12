@@ -41,7 +41,7 @@ class _SignupScreenState extends State<SignupScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('REGISTRATION_ERR: ${e.toString().replaceAll('Exception: ', '')}'),
+          content: Text('Couldn\'t create account: ${e.toString().replaceAll('Exception: ', '')}'),
           backgroundColor: AppColors.error,
         ));
       }
@@ -75,13 +75,13 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'REGISTER_NEW_UNIT'.toUpperCase(),
+                'Create account',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2),
               ),
               const SizedBox(height: 8),
               const Text(
-                'PROVISIONING USER CREDENTIALS',
+                'Your name, email, and a secure password',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textTertiary, fontSize: 10, fontFamily: 'monospace', letterSpacing: 1),
               ),
@@ -97,24 +97,24 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       _buildInput(
                         ctrl: _nameController,
-                        lbl: 'DISPLAY_NAME',
-                        ht: 'ENTER NAME',
+                        lbl: 'Name',
+                        ht: 'How we\'ll greet you',
                         icon: Icons.badge_outlined,
                         val: Validators.validateName,
                       ),
                       const SizedBox(height: 16),
                       _buildInput(
                         ctrl: _emailController,
-                        lbl: 'EMAIL_ADDRESS',
-                        ht: 'VALID EMAIL',
+                        lbl: 'Email',
+                        ht: 'you@example.com',
                         icon: Icons.alternate_email,
                         val: Validators.validateEmail,
                       ),
                       const SizedBox(height: 16),
                       _buildInput(
                         ctrl: _passwordController,
-                        lbl: 'SECRET_TOKEN',
-                        ht: 'CREATE PASSKEY',
+                        lbl: 'Password',
+                        ht: 'At least 8 characters',
                         icon: Icons.lock_outline,
                         obsc: true,
                         val: Validators.validatePassword,
@@ -128,7 +128,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           onPressed: _isLoading ? null : _handleSignup,
                           child: _isLoading
                               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
-                              : const Text('CREATE_PROFILE'),
+                              : const Text('Create account'),
                         ),
                       ),
                     ],
@@ -139,10 +139,10 @@ class _SignupScreenState extends State<SignupScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('ALREADY_PROVISIONED? ', style: TextStyle(color: Colors.white38, fontFamily: 'monospace', fontSize: 11)),
+                  const Text('Already have an account? ', style: TextStyle(color: Colors.white38, fontFamily: 'monospace', fontSize: 11)),
                   GestureDetector(
                     onTap: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen())),
-                    child: const Text('SIGN_IN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, fontFamily: 'monospace', fontSize: 11)),
+                    child: const Text('Log in', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, decoration: TextDecoration.underline, fontFamily: 'monospace', fontSize: 11)),
                   ),
                 ],
               ),

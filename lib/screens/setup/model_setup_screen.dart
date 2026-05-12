@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../services/local_llm_service.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -26,6 +29,8 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
   int _progress = 0;
   bool _isDone = false;
   String? _error;
+  String _channelLabel = '…';
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   @override
   void initState() {
@@ -46,19 +51,42 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
     _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
     _fadeController.forward();
 
+    _refreshConnectivity();
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((_) {
+      _refreshConnectivity();
+    });
+
     // Begin download immediately
     _startDownload();
   }
 
+  Future<void> _refreshConnectivity() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      if (!mounted) return;
+      final online = results.any((r) => r != ConnectivityResult.none);
+      setState(() {
+        _channelLabel = online ? 'Online' : 'Offline';
+      });
+    } catch (_) {
+      if (mounted) setState(() => _channelLabel = 'Unknown');
+    }
+  }
+
   @override
   void dispose() {
+    _connectivitySub?.cancel();
     _pulseController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
 
   Future<void> _startDownload() async {
-    setState(() => _error = null);
+    setState(() {
+      _error = null;
+      _progress = 0;
+      _isDone = false;
+    });
 
     try {
       await for (final p in LocalLlmService().downloadWithProgress()) {
@@ -168,7 +196,7 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
     return Column(
       children: [
         Text(
-          _isDone ? 'ASSET_LOCK_STABLE' : 'SYNCHRONIZING_MODULE',
+          _isDone ? 'Ready' : 'Downloading model…',
           style: const TextStyle(
             fontFamily: 'monospace',
             fontWeight: FontWeight.bold,
@@ -179,7 +207,7 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
         ),
         const SizedBox(height: 16),
         Text(
-          _isDone ? 'QWEN_0.6B READY' : 'PULLING QWEN3 CORE',
+          _isDone ? 'Coaching model installed' : 'Fetching on-device AI',
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 22,
@@ -199,13 +227,15 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
 
   Widget _buildDownloadingMatrix() {
     final double fraction = _progress / 100.0;
+    final bool indeterminate = _progress <= 0;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'BUFFR_SEQ //',
+              'Progress',
               style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 9,
@@ -224,17 +254,16 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
           ],
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 6,
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border.all(color: AppColors.borderLight),
-          ),
-          alignment: Alignment.centerLeft,
-          child: FractionallySizedBox(
-            widthFactor: fraction.clamp(0.0, 1.0),
-            child: Container(
-              color: Colors.white,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: SizedBox(
+            height: 8,
+            width: double.infinity,
+            child: LinearProgressIndicator(
+              value: indeterminate ? null : fraction.clamp(0.0, 1.0),
+              backgroundColor: AppColors.surface,
+              color: AppColors.primary,
+              minHeight: 8,
             ),
           ),
         ),
@@ -244,9 +273,9 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
           spacing: 12,
           runSpacing: 12,
           children: [
-            _techChip('PAYLOAD // 614MB'),
-            _techChip('CHANNEL // OFFLINE'),
-            _techChip('STATUS // ACTIVE'),
+            _techChip('Size · 614 MB'),
+            _techChip('Network · $_channelLabel'),
+            _techChip('Status · In progress'),
           ],
         ),
       ],
@@ -259,7 +288,7 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
       child: Column(
         children: const [
           Text(
-            'BOOT SEQUENCE INITIALIZED…',
+            'Almost ready…',
             style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: AppColors.textTertiary),
           ),
         ],
@@ -278,12 +307,12 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
       child: Column(
         children: [
           const Text(
-            'ERR_FATAL_TRANSFER',
+            'Download failed',
             style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, color: AppColors.accentRed, letterSpacing: 1.5, fontSize: 10),
           ),
           const SizedBox(height: 12),
           Text(
-            _error ?? 'Unknown packet loss.',
+            _error ?? 'Something went wrong. Check your connection and try again.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
           ),
@@ -299,7 +328,7 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
               ),
               alignment: Alignment.center,
               child: const Text(
-                'RESTART_QUEUE',
+                'Try again',
                 style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'monospace', fontSize: 11, letterSpacing: 1),
               ),
             ),
@@ -334,7 +363,7 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
       child: Column(
         children: [
           const Text(
-            'LOCAL_ENCRYPTION_ACTIVE // 100% COMPLIANT',
+            'Your practice stays on this device.',
             style: TextStyle(
               fontSize: 9,
               color: Colors.white10,
@@ -343,9 +372,9 @@ class _ModelSetupScreenState extends State<ModelSetupScreen>
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            'ANTIGRAVITY REBOOT SYSTEM v2.1',
+            'VoiceBridge',
             style: TextStyle(
               fontSize: 8,
               color: Colors.white.withValues(alpha: 0.05),

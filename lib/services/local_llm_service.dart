@@ -1,20 +1,23 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
-import 'dart:io';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_gemma/pigeon.g.dart' show PreferredBackend;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cloud_llm_service.dart';
 
-/// On-device LLM service backed by Gemma 3 1B (MediaPipe / LiteRT, flutter_gemma v0.9.0).
+/// On-device LLM service backed by LiteRT / flutter_gemma (Qwen3 0.6B).
 ///
 /// Architecture:
 ///   - Model is downloaded ONCE on first launch (or pre-installed via ADB).
 ///   - Cached in app documents storage — subsequent launches skip the download.
-///   - GPU backend preferred; falls back to CPU automatically.
+///   - Uses flutter_gemma's [ModelFileManager] for downloads so install state
+///     always matches what [createModel] expects.
+///   - Preferred backend is null so native code picks a working GPU/CPU path;
+///     forcing GPU can fail on emulators and bricks the plugin singleton.
 ///   - No internet needed after first install.
 class LocalLlmService {
   static final LocalLlmService _instance = LocalLlmService._internal();
@@ -27,14 +30,16 @@ class LocalLlmService {
   // ▼▼ MODEL CONFIGURATION — only these two lines ever need to change ▼▼
   // --------------------------------------------------------------------------
 
-  /// Current model: Qwen3 0.6B — 614 MB on-device GPU.
-  /// Direct from litert-community.
+  /// Current model: Qwen3 0.6B — on-device via litert-community.
   static const String _modelBaseUrl =
       'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/'
       'Qwen3-0.6B.litertlm';
 
   /// Context window — 512 tokens is enough for VoiceBridge coaching turns.
   static const int _maxTokens = 512;
+
+  /// Approximate download size for UI/file-poll progress (matches setup screen).
+  static const int _expectedModelBytes = 620000000;
 
   // --------------------------------------------------------------------------
   // State
@@ -75,65 +80,110 @@ class LocalLlmService {
   }
 
   /// Streams download progress (0–100). Completes when done.
-  /// No-ops silently if model is already installed.
+  /// Yields 100 immediately when the model is already installed so UI progress
+  /// does not sit at 0% with an empty stream.
+  ///
+  /// If the model is missing and the device has **no network**, throws immediately
+  /// (otherwise the native downloader can hang with no progress events).
   Stream<int> downloadWithProgress() async* {
     final isInstalled = await isModelInstalled();
-    if (isInstalled) return;
-
-    final token = _hfToken;
-    final urlStr = _modelBaseUrl; // DO NOT append ?token=, HF rejects it
-
-    final httpClient = HttpClient();
-    try {
-      // Follow redirects to the S3 bucket
-      final request = await httpClient.getUrl(Uri.parse(urlStr));
-      if (token.isNotEmpty) {
-        request.headers.add('Authorization', 'Bearer $token');
-      }
-      final response = await request.close();
-
-      if (response.statusCode != 200 && response.statusCode != 302) {
-        throw Exception('Download failed: HTTP ${response.statusCode}');
-      }
-
-      // Handle redirect manually if dart:io doesn't follow Authorization correctly across domains
-      HttpClientResponse finalResponse = response;
-      if (response.isRedirect && response.headers.value('location') != null) {
-        final redirectUrl = response.headers.value('location')!;
-        final redirectReq = await httpClient.getUrl(Uri.parse(redirectUrl));
-        // Do not send Bearer token to S3, it will cause 400 Bad Request
-        finalResponse = await redirectReq.close();
-      }
-
-      if (finalResponse.statusCode != 200) {
-        throw Exception('Download failed on redirect: HTTP ${finalResponse.statusCode}');
-      }
-
-      final contentLength = finalResponse.contentLength;
-      final dir = await getApplicationDocumentsDirectory();
-      final modelFileName = Uri.parse(urlStr).pathSegments.last;
-      final file = File('${dir.path}/$modelFileName');
-      final sink = file.openWrite();
-
-      int receivedBytes = 0;
-      await for (var chunk in finalResponse) {
-        sink.add(chunk);
-        receivedBytes += chunk.length;
-        if (contentLength > 0) {
-          final progress = ((receivedBytes / contentLength) * 100).toInt();
-          yield progress;
-        }
-      }
-      await sink.close();
-
-      // Register with flutter_gemma's internal storage tracking
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('installed_model_file_name', modelFileName);
-      
-      _isInitialized = true;
-    } finally {
-      httpClient.close();
+    if (isInstalled) {
+      yield 100;
+      return;
     }
+
+    final cloud = CloudLlmService();
+    if (!await cloud.isOnline()) {
+      throw Exception(
+        'Internet required once to download the on-device tutor model (~600 MB). '
+        'Connect to Wi‑Fi or mobile data, then tap RETRY_QUEUE.',
+      );
+    }
+
+    yield 0;
+
+    final modelFileName = Uri.parse(_modelBaseUrl).pathSegments.last;
+    final pluginStream = FlutterGemmaPlugin.instance.modelManager
+        .downloadModelFromNetworkWithProgress(_modelBaseUrl)
+        .timeout(
+      const Duration(seconds: 120),
+      onTimeout: (sink) {
+        sink.addError(
+          Exception(
+            'Download stalled (no progress for 2 minutes). Check your connection or VPN, then tap RETRY_QUEUE.',
+          ),
+        );
+      },
+    );
+
+    yield* _mergePluginDownloadWithFilePoll(pluginStream, modelFileName);
+  }
+
+  /// Merges native plugin progress with partial file size on disk (plugin often
+  /// stays silent for long stretches while bytes are still downloading).
+  Stream<int> _mergePluginDownloadWithFilePoll(
+    Stream<int> pluginStream,
+    String modelFileName,
+  ) {
+    final controller = StreamController<int>();
+    var maxProgress = 0;
+    var active = true;
+
+    void push(int v) {
+      final n = v.clamp(0, 100);
+      if (n <= maxProgress) return;
+      maxProgress = n;
+      if (!controller.isClosed) {
+        controller.add(maxProgress);
+      }
+    }
+
+    Future<void> pollOnce() async {
+      if (!active) return;
+      try {
+        final dir = await getApplicationDocumentsDirectory();
+        final f = File('${dir.path}/$modelFileName');
+        if (await f.exists()) {
+          final len = await f.length();
+          final est = ((len * 99) ~/ _expectedModelBytes).clamp(0, 99);
+          push(est);
+        }
+      } catch (_) {}
+    }
+
+    final timer = Timer.periodic(const Duration(milliseconds: 450), (_) {
+      pollOnce();
+    });
+
+    StreamSubscription<int>? pluginSub;
+    controller.onCancel = () {
+      active = false;
+      timer.cancel();
+      pluginSub?.cancel();
+    };
+
+    pluginSub = pluginStream.listen(
+      push,
+      onError: (Object e, StackTrace st) {
+        active = false;
+        timer.cancel();
+        if (!controller.isClosed) {
+          controller.addError(e, st);
+        }
+      },
+      onDone: () async {
+        active = false;
+        timer.cancel();
+        await pollOnce();
+        push(100);
+        if (!controller.isClosed) {
+          await controller.close();
+        }
+      },
+      cancelOnError: true,
+    );
+
+    return controller.stream;
   }
 
   // --------------------------------------------------------------------------
@@ -147,8 +197,8 @@ class LocalLlmService {
       final isInstalled = await isModelInstalled();
 
       if (!isInstalled) {
-        debugPrint('LLM: Qwen not on device — starting custom download…');
-        await downloadWithProgress().last;
+        debugPrint('LLM: Qwen not on device — downloading via Gemma plugin…');
+        await for (final _ in downloadWithProgress()) {}
         debugPrint('LLM: Download complete.');
       } else {
         debugPrint('LLM: Qwen already installed — skipping.');
@@ -175,10 +225,13 @@ class LocalLlmService {
     try {
       await init();
       debugPrint('LLM: Loading Qwen3 0.6B into memory…');
+      // Single backend choice: LiteRT leaves the plugin completer wedged after a
+      // failed createModel, so a second createModel() cannot retry. CPU is the
+      // most compatible path for TFLite on diverse Android GPUs.
       _model = await FlutterGemmaPlugin.instance.createModel(
         modelType: ModelType.general,
         maxTokens: _maxTokens,
-        preferredBackend: PreferredBackend.gpu,
+        preferredBackend: PreferredBackend.cpu,
       );
       _isLoaded = true;
       debugPrint('LLM: Model loaded and ready.');
@@ -222,7 +275,12 @@ class LocalLlmService {
 
   /// Returns the full response string (blocks until generation completes).
   Future<String> generateResponse(String prompt) async {
-    await loadModel();
+    try {
+      await loadModel();
+    } catch (e) {
+      debugPrint('LLM generateResponse: loadModel failed — $e');
+      return '';
+    }
     try {
       final chat = await _model!.createChat();
       await chat.addQueryChunk(Message(text: prompt, isUser: true));
@@ -235,8 +293,21 @@ class LocalLlmService {
   }
 
   /// Returns a stream of tokens as they are generated (real-time UI updates).
-  Future<Stream<String>> generateResponseStream(String prompt) async {
-    await loadModel();
+  /// Set [skipLoad] true when [loadModel] was already awaited (avoids duplicate work).
+  Future<Stream<String>> generateResponseStream(String prompt, {bool skipLoad = false}) async {
+    if (!skipLoad) {
+      try {
+        await loadModel();
+      } catch (e, st) {
+        debugPrint('LLM generateResponseStream: loadModel failed — $e');
+        debugPrint(st.toString());
+        return Stream.value(
+          "I'm sorry — the offline tutor model could not start on this device. "
+          'Try a reboot or free storage. If you use full offline mode, you can still '
+          'practice; when you have internet, turn off full offline to use cloud replies.',
+        );
+      }
+    }
     try {
       final chat = await _model!.createChat();
       await chat.addQueryChunk(Message(text: prompt, isUser: true));
@@ -255,7 +326,7 @@ class LocalLlmService {
   /// Streams tokens using the best available provider:
   ///   Online  → Gemini 2.0 Flash  (primary — fastest & most generous free tier)
   ///          → Groq Llama 3.3 70B (secondary — fastest GPU inference)
-  ///   Offline → Qwen 0.5B on-device (zero-dependency fallback)
+  ///   Offline → Qwen on-device
   Future<Stream<String>> smartStream(String prompt) async {
     final cloud = CloudLlmService();
 
@@ -281,7 +352,16 @@ class LocalLlmService {
     }
     // ── Offline: on-device Qwen ─────────────────────────────────────────
     debugPrint('LLM: Routing to Qwen3 0.6B on-device (offline)');
-    return generateResponseStream(prompt);
+    try {
+      return await generateResponseStream(prompt);
+    } catch (e, st) {
+      debugPrint('LLM smartStream local path failed — $e');
+      debugPrint(st.toString());
+      return Stream.value(
+        "I'm having trouble running the offline tutor on this phone right now. "
+        'Try again after a reboot, or connect to the internet and turn off full offline for cloud replies.',
+      );
+    }
   }
 
   /// Non-streaming version of smartStream — collects full response.
@@ -292,17 +372,5 @@ class LocalLlmService {
       buffer.write(token);
     }
     return buffer.toString().trim();
-  }
-
-  // --------------------------------------------------------------------------
-  // Internal helpers
-  // --------------------------------------------------------------------------
-
-  String get _hfToken {
-    try {
-      return dotenv.env['HUGGINGFACE_TOKEN'] ?? '';
-    } catch (_) {
-      return '';
-    }
   }
 }
